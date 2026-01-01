@@ -1,0 +1,48 @@
+[project]
+name = "token_display"
+version = "0.1.0"
+description = "A care plugin to SSR tokens of queues"
+readme = "README.md"
+authors = [
+  {name = "Open Healthcare Network", email = "support@ohc.network"}
+]
+maintainers = [
+  {name = "Open Healthcare Network", email = "support@ohc.network"}
+]
+classifiers = [
+    # TODO
+]
+license = {text = "MIT"}
+dependencies = [
+    "django",
+    "celery",
+    "djangorestframework",
+]
+requires-python = ">= 3.10"
+
+[project.optional-dependencies]
+test = [
+    "ruff",  # linting
+]
+
+[project.urls]
+bugs = "https://github.com/ohcnetwork/token_display/issues"
+changelog = "https://github.com/ohcnetwork/token_display/blob/master/changelog.md"
+homepage = "https://github.com/ohcnetwork/token_display"
+
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # Pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+]
+
+[tool.uv]
+package = true
