@@ -9,9 +9,9 @@ TokenQueue changes, etc.).
 from django.core.cache import cache
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from token_display.utils import get_token_display_cache_key
 
 from care.emr.models import SchedulableResource, Token, TokenQueue, TokenSubQueue
+from token_display.utils import get_token_display_cache_key
 
 
 def invalidate_sub_queue_cache(sub_queues: list[TokenSubQueue]):
