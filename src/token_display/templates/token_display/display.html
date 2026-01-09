@@ -163,7 +163,7 @@
     {% for sub_queue in sub_queues %}
       <div
         class="service-point-card {{ sub_queue.col_span }}"
-        hx-get="/token_display/sub_queue/{{ sub_queue.id }}/partial/?token={{ auth_token }}"
+        hx-get="/token_display/sub_queue/{{ sub_queue.id }}/partial/"
         hx-trigger="load, every {{ refresh_interval }}s"
         hx-swap="innerHTML"
         id="token-content-{{ sub_queue.id }}"
