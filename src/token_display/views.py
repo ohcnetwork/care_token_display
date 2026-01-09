@@ -1,17 +1,20 @@
 from uuid import UUID
 
 from django.core.cache import cache
-from django.http import HttpRequest, HttpResponse
-from django.shortcuts import render
-from django.views import View
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.renderers import TemplateHTMLRenderer
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from care.emr.models import Token, TokenSubQueue
 from care.emr.resources.scheduling.token.spec import TokenStatusOptions
 from care.emr.resources.scheduling.token_sub_queue.spec import (
     TokenSubQueueStatusOptions,
 )
+from care.security.authorization import AuthorizationController
 from care.utils.shortcuts import get_object_or_404
 from care.utils.time_util import care_now
+from token_display.authentication import QueryParamTokenAuthentication
 from token_display.settings import plugin_settings
 from token_display.utils import (
     fmt_schedule_resource_name,
@@ -20,27 +23,38 @@ from token_display.utils import (
 )
 
 
-def authenticate_request(request: HttpRequest) -> bool:
-    from rest_framework.authtoken.models import Token as AuthToken
-
-    get_object_or_404(AuthToken, key=request.GET.get("token"))
-
-
-class SubQueuesTokenDisplayView(View):
+class SubQueuesTokenDisplayView(APIView):
     """
     Main view that renders the full SSR token display page for a facility.
     """
 
-    def get(self, request: HttpRequest, sub_queue_external_ids: str) -> HttpResponse:
+    authentication_classes = [QueryParamTokenAuthentication]
+    renderer_classes = [TemplateHTMLRenderer]
+    template_name = "token_display/display.html"
+
+    def get_sub_queue_objects(self):
+        external_ids = self.kwargs["sub_queue_external_ids"].split(",")
+        return TokenSubQueue.objects.filter(
+            external_id__in=external_ids,
+            status=TokenSubQueueStatusOptions.active.value,
+        )
+
+    def authorize_request(self):
+        for sub_queue in self.get_sub_queue_objects():
+            if not AuthorizationController.call(
+                "can_list_token", sub_queue.resource, self.request.user
+            ):
+                raise PermissionDenied(
+                    "You do not have permission read tokens for this resource"
+                )
+
+    def get(self, request, sub_queue_external_ids: str):
         """
         Render the full token display page with HTMX setup.
         """
-        authenticate_request(request)
-        sub_queues = TokenSubQueue.objects.filter(
-            external_id__in=sub_queue_external_ids.split(","),
-            status=TokenSubQueueStatusOptions.active.value,
-        ).values_list("external_id", flat=True)
-        item_count = len(sub_queues)
+        self.authorize_request()
+        sub_queues = self.get_sub_queue_objects()
+        item_count = sub_queues.count()
 
         # Determine grid class and column spans
         if item_count == 1:
@@ -52,7 +66,7 @@ class SubQueuesTokenDisplayView(View):
 
         # Calculate column spans for each item
         sub_queues_with_spans = []
-        for index, sub_queue_id in enumerate(sub_queues):
+        for index, sub_queue in enumerate(sub_queues):
             if item_count == 3 and index == 2:
                 col_span = "col-span-2"
             elif item_count <= 4:
@@ -69,45 +83,59 @@ class SubQueuesTokenDisplayView(View):
 
             sub_queues_with_spans.append(
                 {
-                    "id": sub_queue_id,
+                    "id": sub_queue.external_id,
                     "col_span": col_span,
                 }
             )
 
-        context = {
-            "sub_queues": sub_queues_with_spans,
-            "item_count": item_count,
-            "grid_class": grid_class,
-            "refresh_interval": plugin_settings.TOKEN_DISPLAY_REFRESH_INTERVAL,
-            "auth_token": request.GET.get("token"),
-        }
-        return render(request, "token_display/display.html", context)
+        return Response(
+            {
+                "sub_queues": sub_queues_with_spans,
+                "item_count": item_count,
+                "grid_class": grid_class,
+                "refresh_interval": plugin_settings.TOKEN_DISPLAY_REFRESH_INTERVAL,
+                "auth_token": self.request.GET.get("token"),
+            }
+        )
 
 
-class SubQueueTokenDisplayPartialView(View):
+class SubQueueTokenDisplayPartialView(APIView):
     """
     Partial view that returns only the data portion for HTMX swapping.
     """
 
-    def get(
-        self,
-        request: HttpRequest,
-        sub_queue_external_id: UUID,
-    ) -> HttpResponse:
+    authentication_classes = [QueryParamTokenAuthentication]
+    renderer_classes = [TemplateHTMLRenderer]
+    template_name = "token_display/partial.html"
+
+    def get_sub_queue_obj(self):
+        return get_object_or_404(
+            TokenSubQueue,
+            external_id=self.kwargs["sub_queue_external_id"],
+            status=TokenSubQueueStatusOptions.active.value,
+        )
+
+    def authorize_request(self):
+        resource = self.get_sub_queue_obj().resource
+        if not AuthorizationController.call(
+            "can_list_token", resource, self.request.user
+        ):
+            raise PermissionDenied(
+                "You do not have permission read tokens for this resource"
+            )
+
+    def get(self, request, sub_queue_external_id: UUID):
         """
         Return the partial HTML with updated token data for a specific sub queue.
         """
-        authenticate_request(request)
-        cache_key = get_token_display_cache_key(sub_queue_external_id)
-        cached_html = cache.get(cache_key)
-        if cached_html is not None:
-            return HttpResponse(cached_html)
+        self.authorize_request()
 
-        sub_queue = get_object_or_404(
-            TokenSubQueue,
-            external_id=sub_queue_external_id,
-            status=TokenSubQueueStatusOptions.active.value,
-        )
+        cache_key = get_token_display_cache_key(sub_queue_external_id)
+        cached_context = cache.get(cache_key)
+        if cached_context is not None:
+            return Response(cached_context)
+
+        sub_queue = self.get_sub_queue_obj()
         token = (
             Token.objects.filter(
                 queue__resource=sub_queue.resource,
@@ -126,11 +154,10 @@ class SubQueueTokenDisplayPartialView(View):
             "refresh_interval": plugin_settings.TOKEN_DISPLAY_REFRESH_INTERVAL,
         }
 
-        rendered_html = render(request, "token_display/partial.html", context)
         cache.set(
             cache_key,
-            rendered_html.content.decode("utf-8"),
+            context,
             plugin_settings.TOKEN_DISPLAY_CACHE_TIMEOUT,
         )
 
-        return rendered_html
+        return Response(context)

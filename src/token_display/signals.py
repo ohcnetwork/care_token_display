@@ -7,7 +7,7 @@ TokenQueue changes, etc.).
 """
 
 from django.core.cache import cache
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
 from care.emr.models import SchedulableResource, Token, TokenQueue, TokenSubQueue
@@ -32,20 +32,19 @@ def invalidate_resource_sub_queue_cache(resource: SchedulableResource):
 
 
 @receiver(post_save, sender=Token)
-def invalidate_token_display_cache_on_token_save(sender, instance, created, **kwargs):
-    """
-    Invalidate token display cache when a Token is saved or updated.
-    """
-    # Invalidate cache for the token's sub_queue (if it exists)
+def invalidate_token_display_cache_on_token_post_save(
+    sender, instance, created, **kwargs
+):
     if instance.sub_queue:
         invalidate_sub_queue_cache([instance.sub_queue])
-    else:
-        invalidate_resource_sub_queue_cache(instance.queue.resource)
+
+
+@receiver(pre_save, sender=Token)
+def invalidate_token_display_cache_on_token_pre_save(sender, instance, **kwargs):
+    if instance.sub_queue:
+        invalidate_sub_queue_cache([instance.sub_queue])
 
 
 @receiver(post_save, sender=TokenQueue)
 def invalidate_token_display_cache_on_queue_save(sender, instance, created, **kwargs):
-    """
-    Invalidate token display cache for all sub queues in a TokenQueue when it's updated.
-    """
     invalidate_resource_sub_queue_cache(instance.resource)
