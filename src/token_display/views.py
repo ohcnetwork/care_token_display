@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from django.core.cache import cache
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.renderers import TemplateHTMLRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -10,6 +11,7 @@ from care.emr.resources.scheduling.token.spec import TokenStatusOptions
 from care.emr.resources.scheduling.token_sub_queue.spec import (
     TokenSubQueueStatusOptions,
 )
+from care.security.authorization import AuthorizationController
 from care.utils.shortcuts import get_object_or_404
 from care.utils.time_util import care_now
 from token_display.authentication import QueryParamTokenAuthentication
@@ -30,15 +32,29 @@ class SubQueuesTokenDisplayView(APIView):
     renderer_classes = [TemplateHTMLRenderer]
     template_name = "token_display/display.html"
 
+    def get_sub_queue_objects(self):
+        external_ids = self.kwargs["sub_queue_external_ids"].split(",")
+        return TokenSubQueue.objects.filter(
+            external_id__in=external_ids,
+            status=TokenSubQueueStatusOptions.active.value,
+        )
+
+    def authorize_request(self):
+        for sub_queue in self.get_sub_queue_objects():
+            if not AuthorizationController.call(
+                "can_list_token", sub_queue.resource, self.request.user
+            ):
+                raise PermissionDenied(
+                    "You do not have permission read tokens for this resource"
+                )
+
     def get(self, request, sub_queue_external_ids: str):
         """
         Render the full token display page with HTMX setup.
         """
-        sub_queues = TokenSubQueue.objects.filter(
-            external_id__in=sub_queue_external_ids.split(","),
-            status=TokenSubQueueStatusOptions.active.value,
-        ).values_list("external_id", flat=True)
-        item_count = len(sub_queues)
+        self.authorize_request()
+        sub_queues = self.get_sub_queue_objects()
+        item_count = sub_queues.count()
 
         # Determine grid class and column spans
         if item_count == 1:
@@ -50,7 +66,7 @@ class SubQueuesTokenDisplayView(APIView):
 
         # Calculate column spans for each item
         sub_queues_with_spans = []
-        for index, sub_queue_id in enumerate(sub_queues):
+        for index, sub_queue in enumerate(sub_queues):
             if item_count == 3 and index == 2:
                 col_span = "col-span-2"
             elif item_count <= 4:
@@ -67,7 +83,7 @@ class SubQueuesTokenDisplayView(APIView):
 
             sub_queues_with_spans.append(
                 {
-                    "id": sub_queue_id,
+                    "id": sub_queue.external_id,
                     "col_span": col_span,
                 }
             )
@@ -92,20 +108,34 @@ class SubQueueTokenDisplayPartialView(APIView):
     renderer_classes = [TemplateHTMLRenderer]
     template_name = "token_display/partial.html"
 
+    def get_sub_queue_obj(self):
+        return get_object_or_404(
+            TokenSubQueue,
+            external_id=self.kwargs["sub_queue_external_id"],
+            status=TokenSubQueueStatusOptions.active.value,
+        )
+
+    def authorize_request(self):
+        resource = self.get_sub_queue_obj().resource
+        if not AuthorizationController.call(
+            "can_list_token", resource, self.request.user
+        ):
+            raise PermissionDenied(
+                "You do not have permission read tokens for this resource"
+            )
+
     def get(self, request, sub_queue_external_id: UUID):
         """
         Return the partial HTML with updated token data for a specific sub queue.
         """
+        self.authorize_request()
+
         cache_key = get_token_display_cache_key(sub_queue_external_id)
         cached_context = cache.get(cache_key)
         if cached_context is not None:
             return Response(cached_context)
 
-        sub_queue = get_object_or_404(
-            TokenSubQueue,
-            external_id=sub_queue_external_id,
-            status=TokenSubQueueStatusOptions.active.value,
-        )
+        sub_queue = self.get_sub_queue_obj()
         token = (
             Token.objects.filter(
                 queue__resource=sub_queue.resource,
