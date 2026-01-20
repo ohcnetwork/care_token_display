@@ -4,7 +4,6 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Token Display</title>
-  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
   <style>
     * {
       box-sizing: border-box;
@@ -161,18 +160,15 @@
 {% else %}
   <div class="token-display-container {{ grid_class }}">
     {% for sub_queue in sub_queues %}
-      <div
-        class="service-point-card {{ sub_queue.col_span }}"
-        hx-get="/token_display/sub_queue/{{ sub_queue.id }}/partial/?token={{ auth_token }}"
-        hx-trigger="load, every {{ refresh_interval }}s"
-        hx-swap="innerHTML"
-        id="token-content-{{ sub_queue.id }}"
-      >
+      <div class="service-point-card {{ sub_queue.col_span }}">
         <div class="service-point-header">
-          <div class="sub-queue-name">Loading...</div>
+          <div class="sub-queue-name">{{ sub_queue.sub_queue_name }}</div>
+          {% if sub_queue.resource_name %}
+            <div class="resource-name">{{ sub_queue.resource_name }}</div>
+          {% endif %}
         </div>
         <div class="token-display-area">
-          <div class="token-number">--</div>
+          <div class="token-number">{{ sub_queue.token }}</div>
         </div>
       </div>
     {% endfor %}

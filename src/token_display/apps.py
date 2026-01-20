@@ -13,8 +13,6 @@ class TokenDisplayConfig(AppConfig):
     verbose_name = _("Token Display")
 
     def ready(self):
-        import token_display.signals  # noqa F401
-
         # include non-API routes (SSR Pages)
         urlconf = import_module(settings.ROOT_URLCONF)
         urlconf.urlpatterns += [
