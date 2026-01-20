@@ -99,10 +99,7 @@ class PluginSettings:  # pragma: no cover
 
 REQUIRED_SETTINGS = set()
 
-DEFAULTS = {
-    "TOKEN_DISPLAY_REFRESH_INTERVAL": 10,  # Refresh interval in seconds
-    "TOKEN_DISPLAY_CACHE_TIMEOUT": 60,  # Cache timeout in seconds
-}
+DEFAULTS = {}
 
 plugin_settings = PluginSettings(
     PLUGIN_NAME, defaults=DEFAULTS, required_settings=REQUIRED_SETTINGS

@@ -70,24 +70,6 @@ plugs = [care_token_display_plug]
 
 [Extended Docs on Plug Installation](https://care-be-docs.ohc.network/pluggable-apps/configuration.html)
 
-## Configuration
-
-The plugin supports the following configuration options via `PLUGIN_CONFIGS` in your Django settings:
-
-```python
-PLUGIN_CONFIGS = {
-    "token_display": {
-        "TOKEN_DISPLAY_REFRESH_INTERVAL": 10,  # Auto-refresh interval in seconds (default: 10)
-        "TOKEN_DISPLAY_CACHE_TIMEOUT": 60,      # Cache timeout in seconds (default: 60)
-    }
-}
-```
-
-### Configuration Options
-
-- **TOKEN_DISPLAY_REFRESH_INTERVAL**: How often (in seconds) each sub-queue card should refresh its data. Default: 10 seconds.
-- **TOKEN_DISPLAY_CACHE_TIMEOUT**: How long (in seconds) to cache the rendered partial views. Should be longer than refresh interval. Default: 60 seconds.
-
 ## Usage
 
 ### URL Structure
@@ -100,29 +82,18 @@ To display tokens for multiple sub-queues:
 /token_display/sub_queues/<uuid1>,<uuid2>,<uuid3>,.../
 ```
 
-This will render a responsive grid showing token information for all three sub-queues, with each card auto-refreshing every 10 seconds (or your configured interval).
+This will render a responsive grid showing a static snapshot of current token information for all sub-queues. The page must be manually refreshed to see updated data.
 
 **Note**: Only active sub-queues (with `status=active`) are displayed. Invalid or inactive sub-queue IDs are filtered out.
 
 ## How It Works
 
-### Architecture
+The plugin provides a simple server-side rendered page that displays current token information:
 
-1. **Initial Load**: The main view renders a full HTML page with HTMX setup
-2. **Auto-Refresh**: Each sub-queue card uses HTMX to poll its partial endpoint at configured intervals
-3. **Caching**: Partial views are cached to reduce database load
-4. **Cache Invalidation**: Django signals automatically invalidate cache when:
-   - A Token is saved (status changes, sub_queue changes, etc.)
-   - A TokenQueue is updated
-
-### Cache Invalidation
-
-The plugin uses Django signals to automatically invalidate cache when relevant data changes:
-
-- **Token Updates**: When any Token is saved, the cache for its sub-queue is invalidated or if a token has no sub_queue, the cache for all sub-queues in that token's queue resource is invalidated
-- **Queue Updates**: When a TokenQueue is updated, all sub-queues for that resource are invalidated
-
-This ensures the display always shows current data without manual cache management.
+1. **Request**: The view receives comma-separated sub-queue UUIDs
+2. **Data Fetching**: For each sub-queue, the plugin fetches the current in-progress token
+3. **Rendering**: All data is rendered in a single HTML response with a responsive grid layout
+4. **Static Display**: The page shows a snapshot of data at request time - manual refresh is required to see updates
 
 ### Grid Layout
 
@@ -139,28 +110,30 @@ The layout handles edge cases like odd numbers of items in the last row.
 ### Dependencies
 
 - Django
-- HTMX (loaded via CDN in templates)
-- Django cache framework (uses project's cache backend)
+- Django REST Framework
 
 ### Project Structure
 
 ```
 src/token_display/
-├── views.py          # View classes for main page and partial views
-├── urls.py           # URL routing
+├── views.py          # View class for token display page
+├── pages.py          # URL routing for UI pages
+├── urls.py           # URL routing for API endpoints
 ├── templates/        # Django templates
 │   └── token_display/
-│       ├── display.html  # Main display page
-│       └── partial.html  # Partial view template
-├── signals.py        # Cache invalidation signal handlers
-├── utils.py          # Utility functions (cache keys, formatting)
-└── settings.py       # Plugin settings configuration
+│       └── display.html  # Main display page
+├── utils.py          # Utility functions (formatting helpers)
+├── settings.py       # Plugin settings configuration
+└── authentication.py # Custom authentication classes
 ```
 
 ## Notes
 
 - The UI is designed to work on displays that may not support modern CSS features
-- 
+- The page displays a static snapshot of token data at the time of request
+- Users must manually refresh the browser to see updated token information
+
+
 ---
 
 This plugin was created with [Cookiecutter](https://github.com/audreyr/cookiecutter) using the [ohcnetwork/care-plugin-cookiecutter](https://github.com/ohcnetwork/care-plugin-cookiecutter).
