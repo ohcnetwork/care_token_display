@@ -13,6 +13,7 @@ from care.emr.resources.scheduling.token_sub_queue.spec import (
 from care.security.authorization import AuthorizationController
 
 from token_display.authentication import QueryParamTokenAuthentication
+from token_display.settings import plugin_settings
 from token_display.utils import (
     fmt_schedule_resource_name,
     fmt_token_number,
@@ -104,6 +105,7 @@ class SubQueuesTokenDisplayView(APIView):
             {
                 "sub_queues": sub_queues_with_data,
                 "item_count": item_count,
+                "auto_refresh_interval": plugin_settings.AUTO_REFRESH_INTERVAL,
                 "grid_class": grid_class,
             }
         )

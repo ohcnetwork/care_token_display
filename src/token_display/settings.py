@@ -99,7 +99,9 @@ class PluginSettings:  # pragma: no cover
 
 REQUIRED_SETTINGS = set()
 
-DEFAULTS = {}
+DEFAULTS = {
+    "AUTO_REFRESH_INTERVAL": 0,
+}
 
 plugin_settings = PluginSettings(
     PLUGIN_NAME, defaults=DEFAULTS, required_settings=REQUIRED_SETTINGS
