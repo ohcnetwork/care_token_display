@@ -1,8 +1,11 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    {% if auto_refresh_interval %}
+    <meta http-equiv="refresh" content="{{ auto_refresh_interval }}" />
+    {% endif %}
     <title>Token Display</title>
     <style>
       * {
@@ -10,8 +13,9 @@
       }
 
       body {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-          Oxygen, Ubuntu, Cantarell, sans-serif;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
+          Cantarell, sans-serif;
         margin: 0;
         padding: 0;
         background: #1fb6c9;
