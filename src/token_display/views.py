@@ -31,10 +31,12 @@ class SubQueuesTokenDisplayView(APIView):
 
     def get_sub_queue_objects(self):
         external_ids = self.kwargs["sub_queue_external_ids"].split(",")
-        return TokenSubQueue.objects.filter(
+        sub_queues = TokenSubQueue.objects.filter(
             external_id__in=external_ids,
             status=TokenSubQueueStatusOptions.active.value,
         )
+        order = {external_id: index for index, external_id in enumerate(external_ids)}
+        return sorted(sub_queues, key=lambda sq: order.get(str(sq.external_id), len(order)))
 
     def authorize_request(self):
         for sub_queue in self.get_sub_queue_objects():
@@ -51,7 +53,7 @@ class SubQueuesTokenDisplayView(APIView):
         """
         self.authorize_request()
         sub_queues = self.get_sub_queue_objects()
-        item_count = sub_queues.count()
+        item_count = len(sub_queues)
 
         # Determine grid class and column spans
         if item_count == 1:
