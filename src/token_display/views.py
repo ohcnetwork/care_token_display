@@ -1,3 +1,4 @@
+from django.db.models import Exists, OuterRef
 from django.utils import timezone
 from django.utils.timezone import make_naive
 from rest_framework.exceptions import PermissionDenied
@@ -19,6 +20,14 @@ from token_display.utils import (
     fmt_token_number,
 )
 
+TRUTHY_QUERY_VALUES = {"1", "true", "yes"}
+
+
+def _parse_bool_query_param(value: str | None) -> bool:
+    if value is None:
+        return False
+    return value.strip().lower() in TRUTHY_QUERY_VALUES
+
 
 class SubQueuesTokenDisplayView(APIView):
     """
@@ -29,16 +38,32 @@ class SubQueuesTokenDisplayView(APIView):
     renderer_classes = [TemplateHTMLRenderer]
     template_name = "token_display/display.html"
 
-    def get_sub_queue_objects(self):
+    def get_sub_queue_objects(self, only_with_active_tokens: bool = False):
         external_ids = self.kwargs["sub_queue_external_ids"].split(",")
         sub_queues = TokenSubQueue.objects.filter(
             external_id__in=external_ids,
             status=TokenSubQueueStatusOptions.active.value,
         )
+        if only_with_active_tokens:
+            active_token_exists = Token.objects.filter(
+                sub_queue=OuterRef("pk"),
+                queue__resource=OuterRef("resource"),
+                queue__date=make_naive(timezone.now()).date(),
+                queue__is_primary=True,
+                status__in=[
+                    TokenStatusOptions.CREATED.value,
+                    TokenStatusOptions.IN_PROGRESS.value,
+                ],
+            )
+            sub_queues = sub_queues.annotate(
+                _has_active_tokens=Exists(active_token_exists)
+            ).filter(_has_active_tokens=True)
         order = {external_id: index for index, external_id in enumerate(external_ids)}
         return sorted(sub_queues, key=lambda sq: order.get(str(sq.external_id), len(order)))
 
     def authorize_request(self):
+        # Authorize against the unfiltered set so permission errors are not
+        # masked by the active-tokens filter.
         for sub_queue in self.get_sub_queue_objects():
             if not AuthorizationController.call(
                 "can_list_token", sub_queue.resource, self.request.user
@@ -52,7 +77,12 @@ class SubQueuesTokenDisplayView(APIView):
         Render the full token display page with static data.
         """
         self.authorize_request()
-        sub_queues = self.get_sub_queue_objects()
+        only_with_active_tokens = _parse_bool_query_param(
+            request.query_params.get("only_with_active_tokens")
+        )
+        sub_queues = self.get_sub_queue_objects(
+            only_with_active_tokens=only_with_active_tokens
+        )
         item_count = len(sub_queues)
 
         # Determine grid class and column spans
@@ -109,5 +139,6 @@ class SubQueuesTokenDisplayView(APIView):
                 "item_count": item_count,
                 "auto_refresh_interval": plugin_settings.AUTO_REFRESH_INTERVAL,
                 "grid_class": grid_class,
+                "only_with_active_tokens": only_with_active_tokens,
             }
         )

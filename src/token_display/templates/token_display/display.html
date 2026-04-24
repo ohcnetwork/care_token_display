@@ -95,18 +95,10 @@
         text-align: center;
       }
 
-      .no-service-points {
-        height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: #1fb6c9;
-      }
-
-      .no-service-points-text {
-        text-align: center;
-        color: #ffffff;
-        font-size: 36px;
+      .empty-screen {
+        position: fixed;
+        inset: 0;
+        background: #000000;
       }
 
       /* Responsive adjustments */
@@ -157,11 +149,7 @@
     </style>
   </head>
   <body>
-    {% if sub_queues %} {% if item_count == 0 %}
-    <div class="no-service-points">
-      <div class="no-service-points-text">No service points found</div>
-    </div>
-    {% else %}
+    {% if sub_queues and item_count > 0 %}
     <div class="token-display-container {{ grid_class }}">
       {% for sub_queue in sub_queues %}
       <div class="service-point-card {{ sub_queue.col_span }}">
@@ -177,10 +165,8 @@
       </div>
       {% endfor %}
     </div>
-    {% endif %} {% else %}
-    <div class="no-service-points">
-      <div class="no-service-points-text">No service points found</div>
-    </div>
+    {% else %}
+    <div class="empty-screen"></div>
     {% endif %}
   </body>
 </html>
