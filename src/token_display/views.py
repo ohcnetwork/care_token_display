@@ -1,3 +1,5 @@
+import re
+
 from django.db.models import Exists, OuterRef
 from django.utils import timezone
 from django.utils.timezone import make_naive
@@ -22,11 +24,22 @@ from token_display.utils import (
 
 TRUTHY_QUERY_VALUES = {"1", "true", "yes"}
 
+# BCP-47 language tag: letters, digits and hyphens, up to 35 chars
+# (see RFC 5646 — 35 chars covers any realistic tag).
+_LANG_RE = re.compile(r"^[A-Za-z0-9-]{1,35}$")
+_DEFAULT_LANG = "en-US"
+
 
 def _parse_bool_query_param(value: str | None) -> bool:
     if value is None:
         return False
     return value.strip().lower() in TRUTHY_QUERY_VALUES
+
+
+def _parse_lang_query_param(value: str | None) -> str:
+    if value and _LANG_RE.match(value):
+        return value
+    return _DEFAULT_LANG
 
 
 class SubQueuesTokenDisplayView(APIView):
@@ -80,6 +93,8 @@ class SubQueuesTokenDisplayView(APIView):
         only_with_active_tokens = _parse_bool_query_param(
             request.query_params.get("only_with_active_tokens")
         )
+        lang = _parse_lang_query_param(request.query_params.get("lang"))
+        mute = _parse_bool_query_param(request.query_params.get("mute"))
         sub_queues = self.get_sub_queue_objects(
             only_with_active_tokens=only_with_active_tokens
         )
@@ -123,15 +138,33 @@ class SubQueuesTokenDisplayView(APIView):
                 .first()
             )
 
+            token_code = fmt_token_number(token) if token else None
+            resource_name = fmt_schedule_resource_name(sub_queue.resource)
             sub_queues_with_data.append(
                 {
-                    "id": sub_queue.external_id,
+                    "id": str(sub_queue.external_id),
                     "col_span": col_span,
                     "sub_queue_name": sub_queue.name,
-                    "resource_name": fmt_schedule_resource_name(sub_queue.resource),
-                    "token": fmt_token_number(token) if token else "--",
+                    "resource_name": resource_name,
+                    "token": token_code or "--",
+                    "token_code": token_code,
                 }
             )
+
+        announcement_payload = {
+            "sub_queues": [
+                {
+                    "id": entry["id"],
+                    "token_code": entry["token_code"],
+                    "sub_queue_name": entry["sub_queue_name"],
+                    "resource_name": entry["resource_name"],
+                }
+                for entry in sub_queues_with_data
+            ],
+            "lang": lang,
+            "mute": mute,
+            "auto_refresh_interval": plugin_settings.AUTO_REFRESH_INTERVAL,
+        }
 
         return Response(
             {
@@ -140,5 +173,6 @@ class SubQueuesTokenDisplayView(APIView):
                 "auto_refresh_interval": plugin_settings.AUTO_REFRESH_INTERVAL,
                 "grid_class": grid_class,
                 "only_with_active_tokens": only_with_active_tokens,
+                "announcement_payload": announcement_payload,
             }
         )

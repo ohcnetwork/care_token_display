@@ -9,3 +9,4 @@ recursive-exclude * *.py[co]
 
 recursive-include docs *.md Makefile *.jpg *.png *.gif
 recursive-include src/token_display/templates *
+recursive-include src/token_display/static *
