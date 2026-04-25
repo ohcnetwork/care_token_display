@@ -1,3 +1,9 @@
+from care.emr.models import Token, TokenSubQueue
+from care.emr.resources.scheduling.token.spec import TokenStatusOptions
+from care.emr.resources.scheduling.token_sub_queue.spec import (
+    TokenSubQueueStatusOptions,
+)
+from care.security.authorization import AuthorizationController
 from django.db.models import Exists, OuterRef
 from django.utils import timezone
 from django.utils.timezone import make_naive
@@ -5,13 +11,6 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.renderers import TemplateHTMLRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
-from care.emr.models import Token, TokenSubQueue
-from care.emr.resources.scheduling.token.spec import TokenStatusOptions
-from care.emr.resources.scheduling.token_sub_queue.spec import (
-    TokenSubQueueStatusOptions,
-)
-from care.security.authorization import AuthorizationController
 
 from token_display.authentication import QueryParamTokenAuthentication
 from token_display.settings import plugin_settings
@@ -59,7 +58,9 @@ class SubQueuesTokenDisplayView(APIView):
                 _has_active_tokens=Exists(active_token_exists)
             ).filter(_has_active_tokens=True)
         order = {external_id: index for index, external_id in enumerate(external_ids)}
-        return sorted(sub_queues, key=lambda sq: order.get(str(sq.external_id), len(order)))
+        return sorted(
+            sub_queues, key=lambda sq: order.get(str(sq.external_id), len(order))
+        )
 
     def authorize_request(self):
         # Authorize against the unfiltered set so permission errors are not
@@ -80,6 +81,7 @@ class SubQueuesTokenDisplayView(APIView):
         only_with_active_tokens = _parse_bool_query_param(
             request.query_params.get("only_with_active_tokens")
         )
+        mute = _parse_bool_query_param(request.query_params.get("mute"))
         sub_queues = self.get_sub_queue_objects(
             only_with_active_tokens=only_with_active_tokens
         )
@@ -123,15 +125,26 @@ class SubQueuesTokenDisplayView(APIView):
                 .first()
             )
 
+            token_code = fmt_token_number(token) if token else None
             sub_queues_with_data.append(
                 {
-                    "id": sub_queue.external_id,
+                    "id": str(sub_queue.external_id),
                     "col_span": col_span,
                     "sub_queue_name": sub_queue.name,
                     "resource_name": fmt_schedule_resource_name(sub_queue.resource),
-                    "token": fmt_token_number(token) if token else "--",
+                    "token": token_code or "--",
+                    "token_code": token_code,
                 }
             )
+
+        announcement_payload = {
+            "sub_queues": [
+                {"id": entry["id"], "token_code": entry["token_code"]}
+                for entry in sub_queues_with_data
+            ],
+            "mute": mute,
+            "auto_refresh_interval": plugin_settings.AUTO_REFRESH_INTERVAL,
+        }
 
         return Response(
             {
@@ -140,5 +153,6 @@ class SubQueuesTokenDisplayView(APIView):
                 "auto_refresh_interval": plugin_settings.AUTO_REFRESH_INTERVAL,
                 "grid_class": grid_class,
                 "only_with_active_tokens": only_with_active_tokens,
+                "announcement_payload": announcement_payload,
             }
         )
