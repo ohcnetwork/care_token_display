@@ -4,13 +4,6 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    {% if auto_refresh_interval %}
-    <meta
-      http-equiv="refresh"
-      content="{{ auto_refresh_interval }}"
-      id="token-display-refresh"
-    />
-    {% endif %}
     <title>Token Display</title>
     <style>
       * {
@@ -200,21 +193,20 @@
         var refreshSeconds =
           Number(payload && payload.auto_refresh_interval) || 0;
 
-        // Take control of the meta-refresh so audio is never cut mid-sentence.
-        var metaRefresh = document.getElementById("token-display-refresh");
-        if (metaRefresh && metaRefresh.parentNode) {
-          metaRefresh.parentNode.removeChild(metaRefresh);
-        }
-
         var refreshScheduled = false;
+        // Mount a fresh <meta http-equiv="refresh"> only once we're done with
+        // playback (or have decided not to play). This guarantees the page is
+        // never reloaded mid-announcement, while still relying on the browser's
+        // native refresh mechanism for the actual reload.
         function scheduleRefresh() {
           if (refreshScheduled) return;
           refreshScheduled = true;
-          if (refreshSeconds > 0) {
-            setTimeout(function () {
-              window.location.reload();
-            }, refreshSeconds * 1000);
-          }
+          if (refreshSeconds <= 0) return;
+          var meta = document.createElement("meta");
+          meta.setAttribute("http-equiv", "refresh");
+          meta.setAttribute("content", String(refreshSeconds));
+          meta.id = "token-display-refresh";
+          document.head.appendChild(meta);
         }
 
         function loadStore() {
