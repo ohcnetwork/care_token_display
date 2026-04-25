@@ -3,26 +3,26 @@ name = "token_display"
 version = "0.1.0"
 description = "A care plugin to SSR tokens of queues"
 readme = "README.md"
-authors = [
-  {name = "Open Healthcare Network", email = "support@ohc.network"}
-]
+authors = [{ name = "Open Healthcare Network", email = "support@ohc.network" }]
 maintainers = [
-  {name = "Open Healthcare Network", email = "support@ohc.network"}
+    { name = "Open Healthcare Network", email = "support@ohc.network" },
 ]
 classifiers = [
     # TODO
 ]
-license = {text = "MIT"}
+license = { text = "MIT" }
 dependencies = [
     "django",
     "celery",
     "djangorestframework",
+    "piper-tts>=1.2.0",
+    "filelock>=3.12",
 ]
 requires-python = ">= 3.10"
 
 [project.optional-dependencies]
 test = [
-    "ruff",  # linting
+    "ruff", # linting
 ]
 
 [project.urls]
@@ -36,12 +36,12 @@ line-length = 120
 
 [tool.ruff.lint]
 select = [
-    "E",   # pycodestyle errors
-    "W",   # pycodestyle warnings
-    "F",   # Pyflakes
-    "I",   # isort
-    "B",   # flake8-bugbear
-    "UP",  # pyupgrade
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # Pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "UP", # pyupgrade
 ]
 
 [tool.uv]

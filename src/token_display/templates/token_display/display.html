@@ -1,10 +1,15 @@
 <!doctype html>
+{% load static %}
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     {% if auto_refresh_interval %}
-    <meta http-equiv="refresh" content="{{ auto_refresh_interval }}" />
+    <meta
+      http-equiv="refresh"
+      content="{{ auto_refresh_interval }}"
+      id="token-display-refresh"
+    />
     {% endif %}
     <title>Token Display</title>
     <style>
@@ -167,6 +172,158 @@
     </div>
     {% else %}
     <div class="empty-screen"></div>
-    {% endif %}
+    {% endif %} {{ announcement_payload|json_script:"token-payload" }}
+    <script>
+      (function () {
+        "use strict";
+
+        var STORAGE_KEY = "token_display:last_announced:v1";
+
+        var payloadEl = document.getElementById("token-payload");
+        if (!payloadEl) return;
+
+        var payload;
+        try {
+          payload = JSON.parse(payloadEl.textContent);
+        } catch (e) {
+          console.error("[token-display] invalid payload", e);
+          return;
+        }
+
+        var subQueues = (payload && payload.sub_queues) || [];
+        var mute = !!(payload && payload.mute);
+        var refreshSeconds =
+          Number(payload && payload.auto_refresh_interval) || 0;
+
+        // Take control of the meta-refresh so audio is never cut mid-sentence.
+        var metaRefresh = document.getElementById("token-display-refresh");
+        if (metaRefresh && metaRefresh.parentNode) {
+          metaRefresh.parentNode.removeChild(metaRefresh);
+        }
+
+        function scheduleRefresh() {
+          if (refreshSeconds > 0) {
+            setTimeout(function () {
+              window.location.reload();
+            }, refreshSeconds * 1000);
+          }
+        }
+
+        function loadStore() {
+          try {
+            var raw = window.localStorage.getItem(STORAGE_KEY);
+            var parsed = raw ? JSON.parse(raw) : {};
+            return parsed && typeof parsed === "object" ? parsed : {};
+          } catch (_) {
+            return {};
+          }
+        }
+
+        function saveStore(store) {
+          try {
+            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+          } catch (_) {
+            // storage quota / disabled — non-fatal
+          }
+        }
+
+        var store = loadStore();
+
+        // Prune keys for sub-queues no longer displayed.
+        var currentIds = {};
+        for (var i = 0; i < subQueues.length; i++)
+          currentIds[subQueues[i].id] = true;
+        for (var key in store) {
+          if (
+            Object.prototype.hasOwnProperty.call(store, key) &&
+            !currentIds[key]
+          ) {
+            delete store[key];
+          }
+        }
+
+        // Build the announcement queue: diff payload against storage.
+        var queue = [];
+        for (var j = 0; j < subQueues.length; j++) {
+          var entry = subQueues[j];
+          var code = entry.token_code;
+          if (!code || code === "--") continue; // never overwrite real with null
+          if (store[entry.id] === code) continue; // already announced
+          queue.push(entry);
+        }
+
+        if (queue.length === 0) {
+          saveStore(store);
+          scheduleRefresh();
+          return;
+        }
+
+        // Muted, or server didn't include an announcement URL: mark everything
+        // announced, stay silent. Storage still advances so dedup works once
+        // mute is disabled later.
+        if (mute) {
+          for (var k = 0; k < queue.length; k++)
+            store[queue[k].id] = queue[k].token_code;
+          saveStore(store);
+          scheduleRefresh();
+          return;
+        }
+
+        function playAudio(url) {
+          return new Promise(function (resolve) {
+            var done = false;
+            function finish() {
+              if (done) return;
+              done = true;
+              resolve();
+            }
+            if (!url) {
+              finish();
+              return;
+            }
+            try {
+              var audio = new Audio(url);
+              audio.preload = "auto";
+              audio.addEventListener("ended", finish, { once: true });
+              audio.addEventListener("error", function (err) {
+                console.warn("[token-display] audio error", err);
+                finish();
+              });
+              var p = audio.play();
+              if (p && typeof p.catch === "function") {
+                p.catch(function (err) {
+                  console.warn("[token-display] play rejected", err);
+                  finish();
+                });
+              }
+            } catch (err) {
+              console.warn("[token-display] audio exception", err);
+              finish();
+            }
+            // Hard ceiling so a stuck announcement can never wedge the queue.
+            setTimeout(finish, 15000);
+          });
+        }
+
+        var chain = Promise.resolve();
+        queue.forEach(function (entry) {
+          chain = chain.then(function () {
+            return playAudio(entry.announcement_url).then(
+              function () {
+                // Always persist so we don't retry forever on next reload.
+                store[entry.id] = entry.token_code;
+                saveStore(store);
+              },
+              function (err) {
+                console.error("[token-display] announce failed", err);
+                store[entry.id] = entry.token_code;
+                saveStore(store);
+              },
+            );
+          });
+        });
+        chain.then(scheduleRefresh);
+      })();
+    </script>
   </body>
 </html>

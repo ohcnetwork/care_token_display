@@ -99,8 +99,57 @@ class PluginSettings:  # pragma: no cover
 
 REQUIRED_SETTINGS = set()
 
+# Default Piper voice catalog. Each entry maps a voice id to download URLs for
+# its ONNX model and matching JSON config (Rhasspy/Piper Hugging Face mirror).
+# Operators may override / extend this via PLUGIN_CONFIGS or env.
+_PIPER_HF_BASE = (
+    "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0"
+)
+_DEFAULT_VOICE_CATALOG = {
+    "en_US-amy-medium": {
+        "lang": "en-US",
+        "onnx_url": f"{_PIPER_HF_BASE}/en/en_US/amy/medium/en_US-amy-medium.onnx",
+        "config_url": f"{_PIPER_HF_BASE}/en/en_US/amy/medium/en_US-amy-medium.onnx.json",
+    },
+    "en_US-ryan-high": {
+        "lang": "en-US",
+        "onnx_url": f"{_PIPER_HF_BASE}/en/en_US/ryan/high/en_US-ryan-high.onnx",
+        "config_url": f"{_PIPER_HF_BASE}/en/en_US/ryan/high/en_US-ryan-high.onnx.json",
+    },
+    "en_GB-alan-medium": {
+        "lang": "en-GB",
+        "onnx_url": f"{_PIPER_HF_BASE}/en/en_GB/alan/medium/en_GB-alan-medium.onnx",
+        "config_url": f"{_PIPER_HF_BASE}/en/en_GB/alan/medium/en_GB-alan-medium.onnx.json",
+    },
+    "hi_IN-pratham-medium": {
+        "lang": "hi-IN",
+        "onnx_url": f"{_PIPER_HF_BASE}/hi/hi_IN/pratham/medium/hi_IN-pratham-medium.onnx",
+        "config_url": f"{_PIPER_HF_BASE}/hi/hi_IN/pratham/medium/hi_IN-pratham-medium.onnx.json",
+    },
+    "hi_IN-priyamvada-medium": {
+        "lang": "hi-IN",
+        "onnx_url": f"{_PIPER_HF_BASE}/hi/hi_IN/priyamvada/medium/hi_IN-priyamvada-medium.onnx",
+        "config_url": f"{_PIPER_HF_BASE}/hi/hi_IN/priyamvada/medium/hi_IN-priyamvada-medium.onnx.json",
+    },
+    "ml_IN-arjun-medium": {
+        "lang": "ml-IN",
+        "onnx_url": f"{_PIPER_HF_BASE}/ml/ml_IN/arjun/medium/ml_IN-arjun-medium.onnx",
+        "config_url": f"{_PIPER_HF_BASE}/ml/ml_IN/arjun/medium/ml_IN-arjun-medium.onnx.json",
+    },
+    "ml_IN-meera-medium": {
+        "lang": "ml-IN",
+        "onnx_url": f"{_PIPER_HF_BASE}/ml/ml_IN/meera/medium/ml_IN-meera-medium.onnx",
+        "config_url": f"{_PIPER_HF_BASE}/ml/ml_IN/meera/medium/ml_IN-meera-medium.onnx.json",
+    },
+}
+
 DEFAULTS = {
     "AUTO_REFRESH_INTERVAL": 0,
+    "TTS_ENABLED": True,
+    "TTS_DEFAULT_VOICE": "en_US-amy-medium",
+    # Empty string means "resolve to <tempdir>/care_token_display_tts at runtime".
+    "TTS_CACHE_DIR": "",
+    "TTS_VOICE_CATALOG": _DEFAULT_VOICE_CATALOG,
 }
 
 plugin_settings = PluginSettings(
