@@ -101,6 +101,11 @@ REQUIRED_SETTINGS = set()
 
 DEFAULTS = {
     "AUTO_REFRESH_INTERVAL": 0,
+    # Languages used by the voice announcer, in playback order. Each entry
+    # corresponds to a `prefix-<lang>.wav` fragment under the plugin's static
+    # sounds directory. Override via PLUGIN_CONFIGS or the `?va_lang=` query
+    # parameter (comma-separated).
+    "VA_DEFAULT_LANG": ["en_IN"],
 }
 
 plugin_settings = PluginSettings(

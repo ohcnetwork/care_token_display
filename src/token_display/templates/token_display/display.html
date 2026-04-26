@@ -168,7 +168,8 @@
     </div>
     {% else %}
     <div class="empty-screen"></div>
-    {% endif %} {% if not va_mute %} {{ announcement_payload|json_script:"token-payload" }}
+    {% endif %} {% if not va_mute %} {{
+    announcement_payload|json_script:"token-payload" }}
     <script>
       (function () {
         "use strict";
@@ -179,6 +180,8 @@
         // Short pause inserted *before* every spelled-out character so digits
         // and letters don't slur into one another.
         var INTER_CHAR_GAP_S = 0.08;
+        // Pause between successive language passes for the same token.
+        var INTER_LANG_GAP_S = 1.0;
 
         var payloadEl = document.getElementById("token-payload");
         if (!payloadEl) return;
@@ -192,6 +195,7 @@
         }
 
         var subQueues = (payload && payload.sub_queues) || [];
+        var langs = (payload && payload.langs) || [];
         var refreshSeconds =
           Number(payload && payload.auto_refresh_interval) || 0;
 
@@ -270,31 +274,39 @@
         // Web Audio is required. If unavailable, mark everything announced
         // and fall through silently.
         var AudioCtx = window.AudioContext || window.webkitAudioContext;
-        if (!AudioCtx) {
+        if (!AudioCtx || langs.length === 0) {
           persistAll();
           scheduleRefresh();
           return;
         }
 
-        // Map an entry's token_code to the ordered list of fragment names that
-        // should be played. Hyphens (and any non-alphanumerics) are skipped —
-        // each fragment WAV bakes in its own trailing pause.
-        function fragmentsFor(entry) {
-          var names = ["chime", "prefix"];
+        // Build the per-language fragment passes for an entry. Each pass is
+        // ``[chime, prefix-<lang>, ...characters]``; passes are separated at
+        // schedule-time by ``INTER_LANG_GAP_S`` of silence.
+        function passesFor(entry) {
           var code = String(entry.token_code).toUpperCase();
+          var chars = [];
           for (var n = 0; n < code.length; n++) {
             var ch = code.charAt(n);
-            if (/[A-Z0-9]/.test(ch)) names.push(ch);
+            if (/[A-Z0-9]/.test(ch)) chars.push(ch);
           }
-          return names;
+          var passes = [];
+          for (var l = 0; l < langs.length; l++) {
+            passes.push(["chime", "prefix-" + langs[l]].concat(chars));
+          }
+          return passes;
         }
 
         // Collect the unique fragment names we actually need so we only
         // fetch+decode each one once.
         var allNames = {};
         for (var q = 0; q < queue.length; q++) {
-          var ns = fragmentsFor(queue[q]);
-          for (var p = 0; p < ns.length; p++) allNames[ns[p]] = true;
+          var ps = passesFor(queue[q]);
+          for (var pp = 0; pp < ps.length; pp++) {
+            for (var p = 0; p < ps[pp].length; p++) {
+              allNames[ps[pp][p]] = true;
+            }
+          }
         }
 
         var ctx = new AudioCtx();
@@ -350,22 +362,26 @@
                   var lastSource = null;
 
                   queue.forEach(function (entry) {
-                    var names = fragmentsFor(entry);
-                    for (var i = 0; i < names.length; i++) {
-                      var name = names[i];
-                      var buf = bufByName[name];
-                      if (!buf) continue;
-                      // Insert the inter-character gap before each spelled-out
-                      // letter/digit (but not before the leading chime/prefix).
-                      if (name !== "chime" && name !== "prefix") {
-                        cursor += INTER_CHAR_GAP_S;
+                    var passes = passesFor(entry);
+                    for (var pi = 0; pi < passes.length; pi++) {
+                      if (pi > 0) cursor += INTER_LANG_GAP_S;
+                      var names = passes[pi];
+                      for (var i = 0; i < names.length; i++) {
+                        var name = names[i];
+                        var buf = bufByName[name];
+                        if (!buf) continue;
+                        // Insert the inter-character gap before each spelled-out
+                        // letter/digit (but not before the chime / prefix-*).
+                        if (name !== "chime" && name.indexOf("prefix-") !== 0) {
+                          cursor += INTER_CHAR_GAP_S;
+                        }
+                        var src = ctx.createBufferSource();
+                        src.buffer = buf;
+                        src.connect(ctx.destination);
+                        src.start(cursor);
+                        cursor += buf.duration;
+                        lastSource = src;
                       }
-                      var src = ctx.createBufferSource();
-                      src.buffer = buf;
-                      src.connect(ctx.destination);
-                      src.start(cursor);
-                      cursor += buf.duration;
-                      lastSource = src;
                     }
                     // Persist as soon as the entry is fully scheduled — the
                     // sources are already locked to the AudioContext clock.

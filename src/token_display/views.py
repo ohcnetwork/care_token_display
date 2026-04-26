@@ -1,3 +1,5 @@
+import re
+
 from care.emr.models import Token, TokenSubQueue
 from care.emr.resources.scheduling.token.spec import TokenStatusOptions
 from care.emr.resources.scheduling.token_sub_queue.spec import (
@@ -21,11 +23,31 @@ from token_display.utils import (
 
 TRUTHY_QUERY_VALUES = {"1", "true", "yes"}
 
+# A `prefix-<lang>.wav` fragment must exist for each accepted lang code.
+# Validation is purely defensive against arbitrary-string injection into the
+# fragment URL; the fragment loader will surface a missing-file error if the
+# operator names a lang we don't have audio for.
+_VA_LANG_RE = re.compile(r"^[A-Za-z0-9_-]{1,16}$")
+
 
 def _parse_bool_query_param(value: str | None) -> bool:
     if value is None:
         return False
     return value.strip().lower() in TRUTHY_QUERY_VALUES
+
+
+def _parse_va_lang_query_param(value: str | None) -> list[str] | None:
+    """Parse a comma-separated `?va_lang=` value.
+
+    Returns ``None`` when the parameter is absent so the caller can fall back
+    to the configured default. An explicit empty value (``?va_lang=``) yields
+    an empty list, which suppresses voice playback. Invalid tokens are
+    silently dropped.
+    """
+    if value is None:
+        return None
+    parts = [p.strip() for p in value.split(",") if p.strip()]
+    return [p for p in parts if _VA_LANG_RE.match(p)]
 
 
 class SubQueuesTokenDisplayView(APIView):
@@ -82,6 +104,14 @@ class SubQueuesTokenDisplayView(APIView):
             request.query_params.get("only_with_active_tokens")
         )
         va_mute = _parse_bool_query_param(request.query_params.get("va_mute"))
+        va_lang_override = _parse_va_lang_query_param(
+            request.query_params.get("va_lang")
+        )
+        va_langs = (
+            va_lang_override
+            if va_lang_override is not None
+            else list(plugin_settings.VA_DEFAULT_LANG or [])
+        )
         sub_queues = self.get_sub_queue_objects(
             only_with_active_tokens=only_with_active_tokens
         )
@@ -145,6 +175,7 @@ class SubQueuesTokenDisplayView(APIView):
                     {"id": entry["id"], "token_code": entry["token_code"]}
                     for entry in sub_queues_with_data
                 ],
+                "langs": va_langs,
                 "auto_refresh_interval": plugin_settings.AUTO_REFRESH_INTERVAL,
             }
         )
