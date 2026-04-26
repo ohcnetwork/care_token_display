@@ -1,9 +1,10 @@
 <!doctype html>
+{% load static %}
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    {% if auto_refresh_interval %}
+    {% if not announcement_payload and auto_refresh_interval %}
     <meta http-equiv="refresh" content="{{ auto_refresh_interval }}" />
     {% endif %}
     <title>Token Display</title>
@@ -167,6 +168,268 @@
     </div>
     {% else %}
     <div class="empty-screen"></div>
+    {% endif %} 
+    {% if announcement_payload %} 
+    {{ announcement_payload|json_script:"token-payload" }}
+    <script>
+      (function () {
+        "use strict";
+
+        var STORAGE_KEY = "token_display:last_announced:v1";
+        var FRAGMENTS_BASE = "{% static 'token_display/sounds/' %}";
+        var QUEUE_TIMEOUT_MS = 30000;
+        // Short pause inserted *before* every spelled-out character so digits
+        // and letters don't slur into one another.
+        var INTER_CHAR_GAP_S = 0.08;
+        // Pause between successive language passes for the same token.
+        var INTER_LANG_GAP_S = 1.0;
+
+        var payloadEl = document.getElementById("token-payload");
+        if (!payloadEl) return;
+
+        var payload;
+        try {
+          payload = JSON.parse(payloadEl.textContent);
+        } catch (e) {
+          console.error("[token-display] invalid payload", e);
+          return;
+        }
+
+        var subQueues = (payload && payload.sub_queues) || [];
+        var langs = (payload && payload.langs) || [];
+        var refreshSeconds =
+          Number(payload && payload.auto_refresh_interval) || 0;
+
+        var refreshScheduled = false;
+        // Mount a fresh <meta http-equiv="refresh"> only once we're done with
+        // playback (or have decided not to play). This guarantees the page is
+        // never reloaded mid-announcement, while still relying on the browser's
+        // native refresh mechanism for the actual reload.
+        function scheduleRefresh() {
+          if (refreshScheduled) return;
+          refreshScheduled = true;
+          if (refreshSeconds <= 0) return;
+          var meta = document.createElement("meta");
+          meta.setAttribute("http-equiv", "refresh");
+          meta.setAttribute("content", String(refreshSeconds));
+          meta.id = "token-display-refresh";
+          document.head.appendChild(meta);
+        }
+
+        function loadStore() {
+          try {
+            var raw = window.localStorage.getItem(STORAGE_KEY);
+            var parsed = raw ? JSON.parse(raw) : {};
+            return parsed && typeof parsed === "object" ? parsed : {};
+          } catch (_) {
+            return {};
+          }
+        }
+
+        function saveStore(store) {
+          try {
+            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+          } catch (_) {
+            // storage quota / disabled — non-fatal
+          }
+        }
+
+        var store = loadStore();
+
+        // Prune keys for sub-queues no longer displayed.
+        var currentIds = {};
+        for (var i = 0; i < subQueues.length; i++)
+          currentIds[subQueues[i].id] = true;
+        for (var key in store) {
+          if (
+            Object.prototype.hasOwnProperty.call(store, key) &&
+            !currentIds[key]
+          ) {
+            delete store[key];
+          }
+        }
+
+        // Build the announcement queue: diff payload against storage.
+        var queue = [];
+        for (var j = 0; j < subQueues.length; j++) {
+          var entry = subQueues[j];
+          var code = entry.token_code;
+          if (!code || code === "--") continue; // never overwrite real with null
+          if (store[entry.id] === code) continue; // already announced
+          queue.push(entry);
+        }
+
+        function persistAll() {
+          for (var k = 0; k < queue.length; k++) {
+            store[queue[k].id] = queue[k].token_code;
+          }
+          saveStore(store);
+        }
+
+        if (queue.length === 0) {
+          saveStore(store);
+          scheduleRefresh();
+          return;
+        }
+
+        // Web Audio is required. If unavailable, mark everything announced
+        // and fall through silently.
+        var AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) {
+          persistAll();
+          scheduleRefresh();
+          return;
+        }
+
+        // Build the per-language fragment passes for an entry. Each pass is
+        // ``[chime, <lang>/prefix, <lang>/A, <lang>/0, ...]``; passes are
+        // separated at schedule-time by ``INTER_LANG_GAP_S`` of silence.
+        // Fragment names map to ``<FRAGMENTS_BASE>/<name>.wav``.
+        function passesFor(entry) {
+          var code = String(entry.token_code).toUpperCase();
+          var chars = [];
+          for (var n = 0; n < code.length; n++) {
+            var ch = code.charAt(n);
+            if (/[A-Z0-9]/.test(ch)) chars.push(ch);
+          }
+          var passes = [];
+          for (var l = 0; l < langs.length; l++) {
+            var lang = langs[l];
+            var pass = ["chime", lang + "/prefix"];
+            for (var c = 0; c < chars.length; c++) {
+              pass.push(lang + "/" + chars[c]);
+            }
+            passes.push(pass);
+          }
+          return passes;
+        }
+
+        // Collect the unique fragment names we actually need so we only
+        // fetch+decode each one once.
+        var allNames = {};
+        for (var q = 0; q < queue.length; q++) {
+          var ps = passesFor(queue[q]);
+          for (var pp = 0; pp < ps.length; pp++) {
+            for (var p = 0; p < ps[pp].length; p++) {
+              allNames[ps[pp][p]] = true;
+            }
+          }
+        }
+
+        var ctx = new AudioCtx();
+        var bufferCache = {};
+
+        function loadBuffer(name) {
+          if (bufferCache[name]) return bufferCache[name];
+          // Encode each path segment but leave the slashes intact so the
+          // browser fetches the correct per-language subdirectory.
+          var url =
+            FRAGMENTS_BASE +
+            name.split("/").map(encodeURIComponent).join("/") +
+            ".wav";
+          bufferCache[name] = fetch(url, { credentials: "same-origin" })
+            .then(function (resp) {
+              if (!resp.ok) {
+                throw new Error("HTTP " + resp.status + " for " + name);
+              }
+              return resp.arrayBuffer();
+            })
+            .then(function (data) {
+              return new Promise(function (resolve, reject) {
+                // Older WebKit only supports the callback form.
+                ctx.decodeAudioData(data, resolve, reject);
+              });
+            });
+          return bufferCache[name];
+        }
+
+        function abortQueue(reason) {
+          if (reason) console.error("[token-display] abort:", reason);
+          persistAll();
+          try {
+            ctx.close();
+          } catch (_) {}
+          scheduleRefresh();
+        }
+
+        // Hard ceiling on the entire queue.
+        var queueTimeout = setTimeout(function () {
+          abortQueue("queue timeout");
+        }, QUEUE_TIMEOUT_MS);
+
+        function playQueue() {
+          var preload = Object.keys(allNames).map(loadBuffer);
+          Promise.all(preload)
+            .then(
+              function (loaded) {
+                // Index buffers by name for the scheduler.
+                var bufByName = {};
+                var keys = Object.keys(allNames);
+                for (var i = 0; i < keys.length; i++) {
+                  bufByName[keys[i]] = loaded[i];
+                }
+
+                return ctx.resume().then(function () {
+                  var cursor = ctx.currentTime + 0.05; // tiny lead so the first buffer doesn't get clipped
+                  var lastSource = null;
+
+                  queue.forEach(function (entry) {
+                    var passes = passesFor(entry);
+                    for (var pi = 0; pi < passes.length; pi++) {
+                      if (pi > 0) cursor += INTER_LANG_GAP_S;
+                      var names = passes[pi];
+                      for (var i = 0; i < names.length; i++) {
+                        var name = names[i];
+                        var buf = bufByName[name];
+                        if (!buf) continue;
+                        // Insert the inter-character gap before each spelled-out
+                        // letter/digit (but not before the chime or any
+                        // <lang>/prefix fragment).
+                        if (name !== "chime" && !/\/prefix$/.test(name)) {
+                          cursor += INTER_CHAR_GAP_S;
+                        }
+                        var src = ctx.createBufferSource();
+                        src.buffer = buf;
+                        src.connect(ctx.destination);
+                        src.start(cursor);
+                        cursor += buf.duration;
+                        lastSource = src;
+                      }
+                    }
+                    // Persist as soon as the entry is fully scheduled — the
+                    // sources are already locked to the AudioContext clock.
+                    store[entry.id] = entry.token_code;
+                  });
+                  saveStore(store);
+
+                  if (!lastSource) {
+                    clearTimeout(queueTimeout);
+                    scheduleRefresh();
+                    return;
+                  }
+                  lastSource.onended = function () {
+                    clearTimeout(queueTimeout);
+                    try {
+                      ctx.close();
+                    } catch (_) {}
+                    scheduleRefresh();
+                  };
+                });
+              },
+              function (err) {
+                clearTimeout(queueTimeout);
+                abortQueue(err);
+              },
+            )
+            .catch(function (err) {
+              clearTimeout(queueTimeout);
+              abortQueue(err);
+            });
+        }
+
+        playQueue();
+      })();
+    </script>
     {% endif %}
   </body>
 </html>

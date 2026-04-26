@@ -30,3 +30,11 @@ Once you have a copy of the source, you can install it with:
 cd token_display
 pip install .
 ```
+
+## Audio announcements
+
+Audio is assembled in the browser from pre-recorded WAV fragments shipped
+with the plugin. There are no additional Python dependencies, no system
+packages (e.g. `ffmpeg`, `espeak`) and no server-side text-to-speech
+required. See [Audio announcements in *Usage*](usage.md#audio-announcements)
+for how to replace the placeholder voice.
