@@ -105,7 +105,7 @@ DEFAULTS = {
     # corresponds to a `prefix-<lang>.wav` fragment under the plugin's static
     # sounds directory. Override via PLUGIN_CONFIGS or the `?va_lang=` query
     # parameter (comma-separated).
-    "VA_DEFAULT_LANG": ["en_IN"],
+    "VA_DEFAULT_LANG": ["ml_IN", "en_IN"],
 }
 
 plugin_settings = PluginSettings(

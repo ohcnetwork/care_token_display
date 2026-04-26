@@ -103,7 +103,6 @@ class SubQueuesTokenDisplayView(APIView):
         only_with_active_tokens = _parse_bool_query_param(
             request.query_params.get("only_with_active_tokens")
         )
-        va_mute = _parse_bool_query_param(request.query_params.get("va_mute"))
         va_lang_override = _parse_va_lang_query_param(
             request.query_params.get("va_lang")
         )
@@ -167,9 +166,12 @@ class SubQueuesTokenDisplayView(APIView):
                 }
             )
 
+        # When no announcement languages are configured, suppress the
+        # announcer markup entirely and let the static <meta refresh>
+        # fallback (rendered in the template) drive page reloads.
         announcement_payload = (
             None
-            if va_mute
+            if not va_langs
             else {
                 "sub_queues": [
                     {"id": entry["id"], "token_code": entry["token_code"]}
@@ -188,6 +190,5 @@ class SubQueuesTokenDisplayView(APIView):
                 "grid_class": grid_class,
                 "only_with_active_tokens": only_with_active_tokens,
                 "announcement_payload": announcement_payload,
-                "va_mute": va_mute,
             }
         )

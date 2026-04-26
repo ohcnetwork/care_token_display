@@ -4,7 +4,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    {% if va_mute and auto_refresh_interval %}
+    {% if not announcement_payload and auto_refresh_interval %}
     <meta http-equiv="refresh" content="{{ auto_refresh_interval }}" />
     {% endif %}
     <title>Token Display</title>
@@ -168,8 +168,9 @@
     </div>
     {% else %}
     <div class="empty-screen"></div>
-    {% endif %} {% if not va_mute %} {{
-    announcement_payload|json_script:"token-payload" }}
+    {% endif %} 
+    {% if announcement_payload %} 
+    {{ announcement_payload|json_script:"token-payload" }}
     <script>
       (function () {
         "use strict";
@@ -274,7 +275,7 @@
         // Web Audio is required. If unavailable, mark everything announced
         // and fall through silently.
         var AudioCtx = window.AudioContext || window.webkitAudioContext;
-        if (!AudioCtx || langs.length === 0) {
+        if (!AudioCtx) {
           persistAll();
           scheduleRefresh();
           return;

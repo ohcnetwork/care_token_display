@@ -26,10 +26,21 @@ announced at most once per display across page refreshes.
 
 ### Query parameters
 
-| Param     | Default                  | Description                                                                                                                                  |
-| --------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `va_mute` | off                      | `va_mute=1` (or `true`) suppresses the voice announcement entirely — the page is rendered without any announcer markup or script.            |
-| `va_lang` | `VA_DEFAULT_LANG` setting | Comma-separated language codes for the prefix announcement (e.g. `en_IN`, `ml_IN,en_IN`). Each code must have a matching `prefix-<code>.wav`. |
+| Param     | Default                   | Description                                                                                                                                                                       |
+| --------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `va_lang` | `VA_DEFAULT_LANG` setting | Comma-separated language codes for the prefix announcement (e.g. `en_IN`, `ml_IN,en_IN`). Each code must have a matching `prefix-<code>.wav`. Pass `?va_lang=` (empty) to mute. |
+
+### Muting the voice announcer
+
+The voice announcer is muted by resolving to an empty list of languages. Two
+ways to do this:
+
+- Per-request: pass `?va_lang=` with no value (or only invalid codes).
+- Globally: configure `VA_DEFAULT_LANG = []` in your plugin settings.
+
+When muted, the page is rendered without the announcer payload or script —
+no `localStorage` writes, no fragment fetches — and a plain
+`<meta http-equiv="refresh">` drives the periodic reload.
 
 ### Multi-language announcements
 
@@ -52,8 +63,8 @@ back-to-back with a 1-second pause between languages:
 [chime] [prefix-en_IN] [G] [0] [0] [1]
 ```
 
-An empty `?va_lang=` (or an empty `VA_DEFAULT_LANG`) suppresses voice
-playback entirely while still rendering the visual display.
+See [Muting the voice announcer](#muting-the-voice-announcer) for how to
+disable playback.
 
 ### Audio fragments
 
