@@ -1,12 +1,20 @@
 """Generate placeholder WAV fragments for the token-display announcer.
 
-This script produces 22.05 kHz mono 16-bit PCM WAVs for:
+This script produces 22.05 kHz mono 16-bit PCM WAVs into a per-language
+layout under ``src/token_display/static/token_display/sounds/``::
 
-- ``prefix.wav`` — "Now serving token"
-- ``A.wav`` … ``Z.wav`` — each English letter
-- ``0.wav`` … ``9.wav`` — each digit
+    sounds/
+      chime.wav                          # language-neutral leading chime
+      <lang>/prefix.wav                  # "Now serving token" for <lang>
+      <lang>/A.wav .. <lang>/Z.wav       # one file per English letter
+      <lang>/0.wav .. <lang>/9.wav       # one file per digit
 
-Real recordings should drop into the same path with the same filenames.
+Use ``--langs`` to select which language directories to (re)populate. The
+character fragments are language-neutral in practice, but the layout keeps
+them under each language so that a different voice per language is possible
+when real recordings are dropped in.
+
+Real recordings should drop into the same paths with the same filenames.
 
 Strategy:
 
@@ -188,7 +196,15 @@ def main() -> int:
     parser.add_argument(
         "--out",
         default="src/token_display/static/token_display/sounds",
-        help="Output directory (default: %(default)s)",
+        help="Output base directory (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--langs",
+        default="en_IN,ml_IN",
+        help=(
+            "Comma-separated list of language directories to populate "
+            "(default: %(default)s)."
+        ),
     )
     parser.add_argument(
         "--voice",
@@ -214,29 +230,35 @@ def main() -> int:
     )
 
     out_dir = Path(args.out)
+    langs = [lg.strip() for lg in args.langs.split(",") if lg.strip()]
     written = 0
-    for stem, text in FRAGMENTS:
-        try:
-            samples = (
-                _render_with_say(text, args.voice)
-                if use_say
-                else _render_synthetic(stem, text)
-            )
-        except subprocess.CalledProcessError as exc:
-            print(
-                f"[fragments] say/afconvert failed for {stem!r}; falling back: {exc}",
-                file=sys.stderr,
-            )
-            samples = _render_synthetic(stem, text)
+    for lang in langs:
+        for stem, text in FRAGMENTS:
+            try:
+                samples = (
+                    _render_with_say(text, args.voice)
+                    if use_say
+                    else _render_synthetic(stem, text)
+                )
+            except subprocess.CalledProcessError as exc:
+                print(
+                    f"[fragments] say/afconvert failed for {lang}/{stem!r}; "
+                    f"falling back: {exc}",
+                    file=sys.stderr,
+                )
+                samples = _render_synthetic(stem, text)
 
-        samples = _trim_silence(samples)
-        samples = _normalize(samples)
-        samples = _append_silence(samples, TRAILING_SILENCE_S)
-        path = out_dir / f"{stem}.wav"
-        _write_wav(path, _samples_to_bytes(samples))
-        written += 1
+            samples = _trim_silence(samples)
+            samples = _normalize(samples)
+            samples = _append_silence(samples, TRAILING_SILENCE_S)
+            path = out_dir / lang / f"{stem}.wav"
+            _write_wav(path, _samples_to_bytes(samples))
+            written += 1
 
-    print(f"[fragments] wrote {written} files to {out_dir}")
+    print(
+        f"[fragments] wrote {written} files to {out_dir} "
+        f"({len(langs)} lang(s): {', '.join(langs)})"
+    )
     return 0
 
 

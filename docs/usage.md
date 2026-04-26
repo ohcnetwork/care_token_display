@@ -44,9 +44,10 @@ no `localStorage` writes, no fragment fetches — and a plain
 
 ### Multi-language announcements
 
-The character/digit fragments and the chime are language-neutral and reused as-is.
-Only the *"Now serving token"* prefix is recorded per language, named
-`prefix-<lang>.wav` (for example `prefix-en_IN.wav`, `prefix-ml_IN.wav`).
+The chime is language-neutral and reused as-is. Everything else — the
+*"Now serving token"* prefix and the per-character utterances — is recorded
+per language under a `<lang>/` subdirectory (for example `en_IN/prefix.wav`,
+`en_IN/A.wav`, `ml_IN/prefix.wav`, `ml_IN/A.wav`).
 
 The playback order is controlled by:
 
@@ -58,9 +59,9 @@ For each token, the announcer schedules every configured language pass
 back-to-back with a 1-second pause between languages:
 
 ```
-[chime] [prefix-ml_IN] [G] [0] [0] [1]
+[chime] [ml_IN/prefix] [ml_IN/G] [ml_IN/0] [ml_IN/0] [ml_IN/1]
   ... 1 second pause ...
-[chime] [prefix-en_IN] [G] [0] [0] [1]
+[chime] [en_IN/prefix] [en_IN/G] [en_IN/0] [en_IN/0] [en_IN/1]
 ```
 
 See [Muting the voice announcer](#muting-the-voice-announcer) for how to
@@ -71,12 +72,16 @@ disable playback.
 The fragments live under
 `src/token_display/static/token_display/sounds/`:
 
-| File                        | Contents                                                                |
-| --------------------------- | ----------------------------------------------------------------------- |
-| `chime.wav`                 | Two-tone leading chime (language-neutral).                              |
-| `prefix-<lang>.wav`         | "Now serving token" recorded in `<lang>` (e.g. `prefix-en_IN.wav`).     |
-| `A.wav` … `Z.wav`           | One file per English letter (language-neutral).                         |
-| `0.wav` … `9.wav`           | One file per digit (language-neutral).                                  |
+| File                                | Contents                                                        |
+| ----------------------------------- | --------------------------------------------------------------- |
+| `chime.wav`                         | Two-tone leading chime (language-neutral).                      |
+| `<lang>/prefix.wav`                 | "Now serving token" recorded in `<lang>` (e.g. `en_IN/prefix.wav`). |
+| `<lang>/A.wav` … `<lang>/Z.wav`     | Each English letter pronounced in `<lang>`.                     |
+| `<lang>/0.wav` … `<lang>/9.wav`     | Each digit pronounced in `<lang>`.                              |
+
+So a configuration with `VA_DEFAULT_LANG = ["en_IN", "ml_IN"]` requires the
+`en_IN/` and `ml_IN/` subdirectories to each contain `prefix.wav`, `A.wav` …
+`Z.wav` and `0.wav` … `9.wav`. `chime.wav` is shared.
 
 All files must share the same sample format (the bundled placeholders are
 22.05 kHz mono 16-bit PCM, but the Web Audio API will resample anything it

@@ -282,8 +282,9 @@
         }
 
         // Build the per-language fragment passes for an entry. Each pass is
-        // ``[chime, prefix-<lang>, ...characters]``; passes are separated at
-        // schedule-time by ``INTER_LANG_GAP_S`` of silence.
+        // ``[chime, <lang>/prefix, <lang>/A, <lang>/0, ...]``; passes are
+        // separated at schedule-time by ``INTER_LANG_GAP_S`` of silence.
+        // Fragment names map to ``<FRAGMENTS_BASE>/<name>.wav``.
         function passesFor(entry) {
           var code = String(entry.token_code).toUpperCase();
           var chars = [];
@@ -293,7 +294,12 @@
           }
           var passes = [];
           for (var l = 0; l < langs.length; l++) {
-            passes.push(["chime", "prefix-" + langs[l]].concat(chars));
+            var lang = langs[l];
+            var pass = ["chime", lang + "/prefix"];
+            for (var c = 0; c < chars.length; c++) {
+              pass.push(lang + "/" + chars[c]);
+            }
+            passes.push(pass);
           }
           return passes;
         }
@@ -315,7 +321,12 @@
 
         function loadBuffer(name) {
           if (bufferCache[name]) return bufferCache[name];
-          var url = FRAGMENTS_BASE + encodeURIComponent(name) + ".wav";
+          // Encode each path segment but leave the slashes intact so the
+          // browser fetches the correct per-language subdirectory.
+          var url =
+            FRAGMENTS_BASE +
+            name.split("/").map(encodeURIComponent).join("/") +
+            ".wav";
           bufferCache[name] = fetch(url, { credentials: "same-origin" })
             .then(function (resp) {
               if (!resp.ok) {
@@ -372,8 +383,9 @@
                         var buf = bufByName[name];
                         if (!buf) continue;
                         // Insert the inter-character gap before each spelled-out
-                        // letter/digit (but not before the chime / prefix-*).
-                        if (name !== "chime" && name.indexOf("prefix-") !== 0) {
+                        // letter/digit (but not before the chime or any
+                        // <lang>/prefix fragment).
+                        if (name !== "chime" && !/\/prefix$/.test(name)) {
                           cursor += INTER_CHAR_GAP_S;
                         }
                         var src = ctx.createBufferSource();
