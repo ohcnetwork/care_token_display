@@ -81,7 +81,7 @@ class SubQueuesTokenDisplayView(APIView):
         only_with_active_tokens = _parse_bool_query_param(
             request.query_params.get("only_with_active_tokens")
         )
-        mute = _parse_bool_query_param(request.query_params.get("mute"))
+        va_mute = _parse_bool_query_param(request.query_params.get("va_mute"))
         sub_queues = self.get_sub_queue_objects(
             only_with_active_tokens=only_with_active_tokens
         )
@@ -137,14 +137,17 @@ class SubQueuesTokenDisplayView(APIView):
                 }
             )
 
-        announcement_payload = {
-            "sub_queues": [
-                {"id": entry["id"], "token_code": entry["token_code"]}
-                for entry in sub_queues_with_data
-            ],
-            "mute": mute,
-            "auto_refresh_interval": plugin_settings.AUTO_REFRESH_INTERVAL,
-        }
+        announcement_payload = (
+            None
+            if va_mute
+            else {
+                "sub_queues": [
+                    {"id": entry["id"], "token_code": entry["token_code"]}
+                    for entry in sub_queues_with_data
+                ],
+                "auto_refresh_interval": plugin_settings.AUTO_REFRESH_INTERVAL,
+            }
+        )
 
         return Response(
             {
@@ -154,5 +157,6 @@ class SubQueuesTokenDisplayView(APIView):
                 "grid_class": grid_class,
                 "only_with_active_tokens": only_with_active_tokens,
                 "announcement_payload": announcement_payload,
+                "va_mute": va_mute,
             }
         )

@@ -24,9 +24,9 @@ announced at most once per display across page refreshes.
 
 ### Query parameters
 
-| Param  | Default | Description                                                      |
-| ------ | ------- | ---------------------------------------------------------------- |
-| `mute` | off     | `mute=1` skips audio. Dedup state is still maintained.           |
+| Param     | Default | Description                                                                                                                       |
+| --------- | ------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `va_mute` | off     | `va_mute=1` (or `true`) suppresses the voice announcement entirely — the page is rendered without any announcer markup or script. |
 
 ### Audio fragments
 
