@@ -150,7 +150,7 @@ class SubQueuesTokenDisplayView(APIView):
                     sub_queue=sub_queue,
                     status=TokenStatusOptions.IN_PROGRESS.value,
                 )
-                .order_by("created_date")
+                .order_by("-modified_date")
                 .first()
             )
 
