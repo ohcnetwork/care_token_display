@@ -97,6 +97,34 @@
         text-align: center;
       }
 
+      @keyframes token-number-called-pulse {
+        0% {
+          transform: scale(1);
+          text-shadow: 0 0 0 rgba(255, 216, 61, 0);
+        }
+        50% {
+          transform: scale(1.12);
+          text-shadow:
+            0 0 24px rgba(255, 216, 61, 0.85),
+            0 0 48px rgba(31, 182, 201, 0.55);
+        }
+        100% {
+          transform: scale(1);
+          text-shadow: 0 0 0 rgba(255, 216, 61, 0);
+        }
+      }
+
+      .token-number--called {
+        animation: token-number-called-pulse 1.2s ease-out 2;
+        will-change: transform, text-shadow;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .token-number--called {
+          animation: none;
+        }
+      }
+
       .upcoming-tokens {
         background: #122235;
         border-radius: 0 0 16px 16px;
@@ -221,7 +249,7 @@
           <div class="sub-queue-name">{{ sub_queue.sub_queue_name }}</div>
         </div>
         <div class="token-display-area">
-          <div class="token-number">{{ sub_queue.token }}</div>
+          <div class="token-number" data-sub-queue-id="{{ sub_queue.id }}">{{ sub_queue.token }}</div>
         </div>
         {% if sub_queue.upcoming_tokens %}
         <div class="upcoming-tokens">
@@ -330,6 +358,27 @@
           if (!code || code === "--") continue; // never overwrite real with null
           if (store[entry.id] === code) continue; // already announced
           queue.push(entry);
+        }
+
+        // Visual cue: pulse the token number for every newly-called entry.
+        // Runs immediately so the animation lines up with (and outlives) the
+        // voice playback. The class is removed on animationend so a future
+        // re-render can retrigger it cleanly.
+        for (var v = 0; v < queue.length; v++) {
+          var el = document.querySelector(
+            '.token-number[data-sub-queue-id="' + queue[v].id + '"]'
+          );
+          if (!el) continue;
+          el.classList.add("token-number--called");
+          (function (node) {
+            node.addEventListener(
+              "animationend",
+              function () {
+                node.classList.remove("token-number--called");
+              },
+              { once: true }
+            );
+          })(el);
         }
 
         function persistAll() {
