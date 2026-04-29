@@ -155,6 +155,16 @@ class SubQueuesTokenDisplayView(APIView):
             )
 
             token_code = fmt_token_number(token) if token else None
+
+            upcoming_tokens_qs = Token.objects.filter(
+                queue__resource=sub_queue.resource,
+                queue__date=make_naive(timezone.now()).date(),
+                queue__is_primary=True,
+                sub_queue=sub_queue,
+                status=TokenStatusOptions.CREATED.value,
+            ).order_by("created_date")[:2]
+            upcoming_tokens = [fmt_token_number(t) for t in upcoming_tokens_qs]
+
             sub_queues_with_data.append(
                 {
                     "id": str(sub_queue.external_id),
@@ -163,6 +173,8 @@ class SubQueuesTokenDisplayView(APIView):
                     "resource_name": fmt_schedule_resource_name(sub_queue.resource),
                     "token": token_code or "--",
                     "token_code": token_code,
+                    "upcoming_tokens": upcoming_tokens,
+                    "upcoming_padding": range(max(0, 2 - len(upcoming_tokens))),
                 }
             )
 
