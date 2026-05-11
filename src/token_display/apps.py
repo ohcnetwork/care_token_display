@@ -13,7 +13,18 @@ class TokenDisplayConfig(AppConfig):
     verbose_name = _("Token Display")
 
     def ready(self):
-        # include non-API routes (SSR Pages)
+        """
+        Import models, signals, and other dependencies here to ensure
+        Django's app registry is fully initialized before use.
+        """
+
+        from care.emr.registries.device_type.device_registry import DeviceTypeRegistry
+        from token_display.device import TokenDisplayDevice
+
+        # Register Device Type
+        DeviceTypeRegistry.register("token-display", TokenDisplayDevice)
+
+        # Include Non-API routes (SSR Pages)
         urlconf = import_module(settings.ROOT_URLCONF)
         urlconf.urlpatterns += [
             path(f"{PLUGIN_NAME}/", include(f"{PLUGIN_NAME}.pages"))

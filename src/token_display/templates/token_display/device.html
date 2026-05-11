@@ -1,0 +1,637 @@
+<!doctype html>
+{% load static %}
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Token Display</title>
+    <style>
+      :root {
+        --tv-bg: #07131f;
+        --tv-surface: #122235;
+        --tv-surface-strong: #1b3047;
+        --tv-fg: #ffffff;
+        --tv-muted: #9ca3af;
+        --tv-token: #ffd83d;
+        --tv-divider: rgba(255, 255, 255, 0.06);
+        --aspect-ratio: 16 / 9;
+      }
+
+      body[data-aspect="21/9"] { --aspect-ratio: 21 / 9; }
+      body[data-aspect="4/3"] { --aspect-ratio: 4 / 3; }
+      body[data-aspect="9/16"] { --aspect-ratio: 9 / 16; }
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #000;
+        color: var(--tv-fg);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Oxygen, Ubuntu, Cantarell, sans-serif;
+        overflow: hidden;
+      }
+
+      .tv-frame {
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #000;
+      }
+
+      .tv-canvas {
+        aspect-ratio: var(--aspect-ratio);
+        max-width: 100vw;
+        max-height: 100vh;
+        width: 100%;
+        height: 100%;
+        background: var(--tv-bg);
+        display: grid;
+        grid-template-rows: auto 1fr;
+        overflow: hidden;
+      }
+
+      .tv-canvas[hidden] { display: none; }
+
+      /* Header */
+      .tv-header,
+      .tv-row {
+        display: grid;
+        grid-template-columns: 2.5fr 1fr 1.5fr;
+        column-gap: 24px;
+        align-items: center;
+      }
+
+      .tv-header {
+        padding: 20px 32px;
+        background: var(--tv-surface);
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--tv-muted);
+        border-bottom: 1px solid var(--tv-divider);
+      }
+
+      .tv-header > span:nth-child(3) { text-align: right; }
+
+      /* Body */
+      .tv-body {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      .tv-row {
+        flex: 1 1 0;
+        min-height: 0;
+        padding: 18px 32px;
+        border-bottom: 1px solid var(--tv-divider);
+      }
+
+      .tv-row:last-child { border-bottom: none; }
+
+      body[data-density="compact"] .tv-row { padding: 10px 32px; }
+
+      .tv-row .doctor-name {
+        font-weight: 800;
+        font-size: clamp(20px, 2.6vw, 40px);
+        line-height: 1.05;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .tv-row .doctor-meta {
+        margin-top: 6px;
+        color: var(--tv-muted);
+        font-size: clamp(12px, 1.2vw, 18px);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+      }
+
+      .tv-row .room {
+        justify-self: start;
+        background: var(--tv-surface-strong);
+        border-radius: 12px;
+        padding: 10px 18px;
+        font-weight: 800;
+        font-size: clamp(20px, 2.4vw, 36px);
+        white-space: nowrap;
+      }
+
+      .tv-row .token-cell {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 6px;
+        min-width: 0;
+      }
+
+      .tv-row .token-current {
+        font-weight: 900;
+        font-size: clamp(28px, 4.5vw, 72px);
+        color: var(--tv-token);
+        line-height: 1;
+        letter-spacing: 0.02em;
+      }
+
+      .tv-row .token-current.is-empty { color: #4b5563; }
+
+      .tv-row .token-next {
+        display: flex;
+        gap: 8px;
+        align-items: baseline;
+        flex-wrap: nowrap;
+        color: var(--tv-muted);
+        font-size: clamp(11px, 1vw, 14px);
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+      }
+
+      .tv-row .token-next-label { font-weight: 700; }
+
+      .tv-row .token-next-item {
+        background: var(--tv-surface);
+        color: #e5e7eb;
+        font-weight: 700;
+        font-size: clamp(13px, 1.2vw, 18px);
+        padding: 4px 10px;
+        border-radius: 6px;
+        letter-spacing: 0.02em;
+        text-transform: none;
+      }
+
+      .tv-empty,
+      .tv-loading {
+        position: absolute;
+        inset: 0;
+        background: #000;
+        color: var(--tv-muted);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 24px;
+        font-size: 18px;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+      }
+
+      .tv-loading[hidden],
+      .tv-empty[hidden] { display: none; }
+
+      .tv-spinner {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        border: 4px solid rgba(255, 255, 255, 0.12);
+        border-top-color: var(--tv-token);
+        animation: tv-spin 0.9s linear infinite;
+      }
+
+      @keyframes tv-spin {
+        to { transform: rotate(360deg); }
+      }
+    </style>
+  </head>
+  <body data-density="{{ device.density }}" data-aspect="{{ device.aspect_ratio }}">
+    <div class="tv-frame">
+      <div class="tv-canvas" id="tv-canvas" hidden>
+        <div class="tv-header">
+          <span>Doctor</span>
+          <span>Sub Queue</span>
+          <span>Token</span>
+        </div>
+        <div class="tv-body" id="tv-body"></div>
+      </div>
+    </div>
+
+    <div class="tv-loading" id="tv-loading">
+      <div class="tv-spinner" aria-hidden="true"></div>
+      <div>Loading display</div>
+    </div>
+
+    <template id="tv-row-template">
+      <div class="tv-row">
+        <div>
+          <div class="doctor-name"></div>
+          <div class="doctor-meta" hidden></div>
+        </div>
+        <div class="room"></div>
+        <div class="token-cell">
+          <div class="token-current"></div>
+          <div class="token-next" hidden>
+            <span class="token-next-label">Next:</span>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    {{ device|json_script:"tv-device-config" }}
+
+    <script>
+      window.__TV_CONFIG__ = {
+        deviceId: "{{ device_id|escapejs }}",
+        token: "{{ token|escapejs }}",
+      };
+      try {
+        window.__TV_CONFIG__.device = JSON.parse(
+          document.getElementById("tv-device-config").textContent,
+        );
+      } catch (e) {
+        window.__TV_CONFIG__.device = { voice_announcement_languages: [] };
+      }
+    </script>
+
+    <script>
+      (function () {
+        "use strict";
+
+        var cfg = window.__TV_CONFIG__ || {};
+        var deviceCfg = cfg.device || { voice_announcement_languages: [] };
+        var FRAGMENTS_BASE = "{% static 'token_display/sounds/' %}";
+        var STORAGE_KEY = "token_display:last_announced:v1";
+        var QUEUE_TIMEOUT_MS = 30000;
+        // Short pause inserted *before* every spelled-out character so digits
+        // and letters don't slur into one another.
+        var INTER_CHAR_GAP_S = 0.08;
+        // Pause between successive language passes for the same token.
+        var INTER_LANG_GAP_S = 1.0;
+        var MAX_CONSECUTIVE_FAILURES = 5;
+        var POLL_INTERVAL_MS = Math.max(0, Number(deviceCfg.poll_interval) || 0) * 1000;
+
+        var ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+        var DIGITS = "0123456789".split("");
+
+        var canvasEl = document.getElementById("tv-canvas");
+        var bodyEl = document.getElementById("tv-body");
+        var loadingEl = document.getElementById("tv-loading");
+        var rowTemplate = document.getElementById("tv-row-template");
+
+        function buildApiUrl() {
+          var base = "/api/token_display/device/" + encodeURIComponent(cfg.deviceId) + "/";
+          return cfg.token ? base + "?token=" + encodeURIComponent(cfg.token) : base;
+        }
+
+        // ---- Audio: lifted to module scope so the buffer cache is reused
+        // across announcements. Preloaded at boot so the first announcement
+        // never has to wait for fragments to download.
+        var AudioCtx = window.AudioContext || window.webkitAudioContext;
+        var audioCtx = AudioCtx ? new AudioCtx() : null;
+        var bufferCache = {}; // name -> Promise<AudioBuffer>
+
+        function fragmentNamesFor(langs) {
+          var names = ["chime"];
+          langs.forEach(function (lang) {
+            names.push(lang + "/prefix");
+            ALPHABET.forEach(function (ch) { names.push(lang + "/" + ch); });
+            DIGITS.forEach(function (d) { names.push(lang + "/" + d); });
+          });
+          return names;
+        }
+
+        function loadBuffer(name) {
+          if (bufferCache[name]) return bufferCache[name];
+          if (!audioCtx) return Promise.reject(new Error("no AudioContext"));
+          var url =
+            FRAGMENTS_BASE +
+            name.split("/").map(encodeURIComponent).join("/") +
+            ".wav";
+          bufferCache[name] = fetch(url, { credentials: "same-origin" })
+            .then(function (resp) {
+              if (!resp.ok) {
+                throw new Error("HTTP " + resp.status + " for " + name);
+              }
+              return resp.arrayBuffer();
+            })
+            .then(function (data) {
+              return new Promise(function (resolve, reject) {
+                // Older WebKit only supports the callback form.
+                audioCtx.decodeAudioData(data, resolve, reject);
+              });
+            });
+          return bufferCache[name];
+        }
+
+        function preloadAudio(langs) {
+          if (!audioCtx || !langs || langs.length === 0) return Promise.resolve();
+          // Swallow individual fragment failures so a single missing file
+          // doesn't block the rest of the cache; the announcer simply skips
+          // unresolved buffers.
+          return Promise.all(
+            fragmentNamesFor(langs).map(function (name) {
+              return loadBuffer(name).catch(function (err) {
+                console.warn("[token-display] preload failed", name, err);
+                delete bufferCache[name];
+                return null;
+              });
+            }),
+          );
+        }
+
+        function renderRows(rows) {
+          var frag = document.createDocumentFragment();
+          rows.forEach(function (row) {
+            var node = rowTemplate.content.firstElementChild.cloneNode(true);
+
+            node.querySelector(".doctor-name").textContent =
+              row.resource_name || "";
+
+            var room = node.querySelector(".room");
+            if (row.sub_queue_name) {
+              room.textContent = row.sub_queue_name;
+            } else {
+              room.style.visibility = "hidden";
+            }
+
+            var current = node.querySelector(".token-current");
+            if (row.token_code) {
+              current.textContent = row.token_code;
+            } else {
+              current.textContent = "--";
+              current.classList.add("is-empty");
+            }
+
+            var nextWrap = node.querySelector(".token-next");
+            var upcoming = (row.upcoming_tokens || []).filter(Boolean);
+            if (upcoming.length) {
+              upcoming.forEach(function (t) {
+                var span = document.createElement("span");
+                span.className = "token-next-item";
+                span.textContent = t;
+                nextWrap.appendChild(span);
+              });
+              nextWrap.hidden = false;
+            }
+
+            frag.appendChild(node);
+          });
+          bodyEl.replaceChildren(frag);
+
+          var existingEmpty = document.querySelector(".tv-empty");
+          if (rows.length === 0) {
+            if (!existingEmpty) {
+              var empty = document.createElement("div");
+              empty.className = "tv-empty";
+              empty.textContent = "No active sub-queues";
+              document.body.appendChild(empty);
+            }
+          } else if (existingEmpty) {
+            existingEmpty.remove();
+          }
+        }
+
+        function loadStore() {
+          try {
+            var raw = window.localStorage.getItem(STORAGE_KEY);
+            var parsed = raw ? JSON.parse(raw) : {};
+            return parsed && typeof parsed === "object" ? parsed : {};
+          } catch (_) {
+            return {};
+          }
+        }
+
+        function saveStore(store) {
+          try {
+            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+          } catch (_) {
+            // storage quota / disabled — non-fatal
+          }
+        }
+
+        function passesFor(entry, langs) {
+          var code = String(entry.token_code).toUpperCase();
+          var chars = [];
+          for (var n = 0; n < code.length; n++) {
+            var ch = code.charAt(n);
+            if (/[A-Z0-9]/.test(ch)) chars.push(ch);
+          }
+          var passes = [];
+          for (var l = 0; l < langs.length; l++) {
+            var lang = langs[l];
+            var pass = ["chime", lang + "/prefix"];
+            for (var c = 0; c < chars.length; c++) {
+              pass.push(lang + "/" + chars[c]);
+            }
+            passes.push(pass);
+          }
+          return passes;
+        }
+
+        // Resolves once the announcement queue is fully scheduled (or there
+        // was nothing to announce / playback aborted). Drives the poll loop
+        // so we never start the next fetch mid-announcement.
+        function announce(rows, langs) {
+          if (!langs || langs.length === 0) return Promise.resolve();
+          if (!audioCtx) return Promise.resolve();
+
+          var subQueues = rows.map(function (r) {
+            return { id: r.id, token_code: r.token_code };
+          });
+
+          return new Promise(function (resolve) {
+            var done = false;
+            function finish(reason) {
+              if (done) return;
+              done = true;
+              if (reason) console.error("[token-display] announcer:", reason);
+              resolve();
+            }
+
+            var store = loadStore();
+
+            // Prune keys for sub-queues no longer displayed.
+            var currentIds = {};
+            for (var i = 0; i < subQueues.length; i++)
+              currentIds[subQueues[i].id] = true;
+            for (var key in store) {
+              if (
+                Object.prototype.hasOwnProperty.call(store, key) &&
+                !currentIds[key]
+              ) {
+                delete store[key];
+              }
+            }
+
+            // Build the announcement queue: diff payload against storage.
+            var queue = [];
+            for (var j = 0; j < subQueues.length; j++) {
+              var entry = subQueues[j];
+              var code = entry.token_code;
+              if (!code || code === "--") continue; // never overwrite real with null
+              if (store[entry.id] === code) continue; // already announced
+              queue.push(entry);
+            }
+
+            function persistAll() {
+              for (var k = 0; k < queue.length; k++) {
+                store[queue[k].id] = queue[k].token_code;
+              }
+              saveStore(store);
+            }
+
+            if (queue.length === 0) {
+              saveStore(store);
+              finish();
+              return;
+            }
+
+            var allNames = {};
+            for (var q = 0; q < queue.length; q++) {
+              var ps = passesFor(queue[q], langs);
+              for (var pp = 0; pp < ps.length; pp++) {
+                for (var p = 0; p < ps[pp].length; p++) {
+                  allNames[ps[pp][p]] = true;
+                }
+              }
+            }
+
+            // Hard ceiling on the entire queue.
+            var queueTimeout = setTimeout(function () {
+              persistAll();
+              finish("queue timeout");
+            }, QUEUE_TIMEOUT_MS);
+
+            var preload = Object.keys(allNames).map(loadBuffer);
+            Promise.all(preload)
+              .then(
+                function (loaded) {
+                  var bufByName = {};
+                  var keys = Object.keys(allNames);
+                  for (var i = 0; i < keys.length; i++) {
+                    bufByName[keys[i]] = loaded[i];
+                  }
+
+                  return audioCtx.resume().then(function () {
+                    var cursor = audioCtx.currentTime + 0.05;
+                    var lastSource = null;
+
+                    queue.forEach(function (entry) {
+                      var passes = passesFor(entry, langs);
+                      for (var pi = 0; pi < passes.length; pi++) {
+                        if (pi > 0) cursor += INTER_LANG_GAP_S;
+                        var names = passes[pi];
+                        for (var i = 0; i < names.length; i++) {
+                          var name = names[i];
+                          var buf = bufByName[name];
+                          if (!buf) continue;
+                          if (name !== "chime" && !/\/prefix$/.test(name)) {
+                            cursor += INTER_CHAR_GAP_S;
+                          }
+                          var src = audioCtx.createBufferSource();
+                          src.buffer = buf;
+                          src.connect(audioCtx.destination);
+                          src.start(cursor);
+                          cursor += buf.duration;
+                          lastSource = src;
+                        }
+                      }
+                      // Persist as soon as the entry is fully scheduled — the
+                      // sources are already locked to the AudioContext clock.
+                      store[entry.id] = entry.token_code;
+                    });
+                    saveStore(store);
+
+                    if (!lastSource) {
+                      clearTimeout(queueTimeout);
+                      finish();
+                      return;
+                    }
+                    lastSource.onended = function () {
+                      clearTimeout(queueTimeout);
+                      finish();
+                    };
+                  });
+                },
+                function (err) {
+                  clearTimeout(queueTimeout);
+                  persistAll();
+                  finish(err);
+                },
+              )
+              .catch(function (err) {
+                clearTimeout(queueTimeout);
+                persistAll();
+                finish(err);
+              });
+          });
+        }
+
+        function hideLoading() {
+          if (!loadingEl || loadingEl.hidden) return;
+          loadingEl.hidden = true;
+          canvasEl.hidden = false;
+        }
+
+        var consecutiveFailures = 0;
+        var inFlight = false;
+
+        function fetchPayload() {
+          return fetch(buildApiUrl(), {
+            credentials: "same-origin",
+            cache: "no-store",
+          }).then(function (resp) {
+            if (!resp.ok) {
+              throw new Error("HTTP " + resp.status);
+            }
+            return resp.json();
+          });
+        }
+
+        function applyPayload(payload) {
+          consecutiveFailures = 0;
+          var rows = (payload && payload.rows) || [];
+          renderRows(rows);
+          hideLoading();
+          var langs =
+            (payload && payload.device && payload.device.voice_announcement_languages) ||
+            deviceCfg.voice_announcement_languages ||
+            [];
+          return announce(rows, langs);
+        }
+
+        function pollOnce() {
+          if (inFlight) return;
+          inFlight = true;
+          fetchPayload()
+            .then(applyPayload)
+            .catch(function (err) {
+              consecutiveFailures += 1;
+              console.error("[token-display] poll failed", err);
+              if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+                window.location.reload();
+              }
+            })
+            .then(function () {
+              inFlight = false;
+            });
+        }
+
+        // Boot: kick off the first fetch and audio preload in parallel so
+        // the very first announcement plays without buffering. The shell
+        // shows a loading state until the first poll resolves.
+        var bootLangs = deviceCfg.voice_announcement_languages || [];
+        inFlight = true;
+        Promise.all([
+          fetchPayload().then(applyPayload),
+          preloadAudio(bootLangs),
+        ])
+          .catch(function (err) {
+            consecutiveFailures += 1;
+            console.error("[token-display] boot failed", err);
+          })
+          .then(function () {
+            inFlight = false;
+            if (POLL_INTERVAL_MS > 0) {
+              setInterval(pollOnce, POLL_INTERVAL_MS);
+            }
+          });
+      })();
+    </script>
+  </body>
+</html>

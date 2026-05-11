@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/care_token_display.iml" filepath="$PROJECT_DIR$/.idea/care_token_display.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/token_display.iml" filepath="$PROJECT_DIR$/.idea/token_display.iml" />
     </modules>
   </component>
 </project>
