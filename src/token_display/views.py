@@ -1,6 +1,7 @@
 import re
 
 from care.emr.models import Token, TokenSubQueue
+from care.emr.resources.scheduling.schedule.spec import SchedulableResourceTypeOptions
 from care.emr.resources.scheduling.token.spec import TokenStatusOptions
 from care.emr.resources.scheduling.token_sub_queue.spec import (
     TokenSubQueueStatusOptions,
@@ -76,71 +77,44 @@ class SubQueuesTokenDisplayView(APIView):
                     TokenStatusOptions.IN_PROGRESS.value,
                 ],
             )
-            sub_queues = sub_queues.annotate(
-                _has_active_tokens=Exists(active_token_exists)
-            ).filter(_has_active_tokens=True)
+            sub_queues = sub_queues.annotate(_has_active_tokens=Exists(active_token_exists)).filter(
+                _has_active_tokens=True
+            )
         order = {external_id: index for index, external_id in enumerate(external_ids)}
-        return sorted(
-            sub_queues, key=lambda sq: order.get(str(sq.external_id), len(order))
-        )
+        return sorted(sub_queues, key=lambda sq: order.get(str(sq.external_id), len(order)))
 
     def authorize_request(self):
         # Authorize against the unfiltered set so permission errors are not
         # masked by the active-tokens filter.
         for sub_queue in self.get_sub_queue_objects():
-            if not AuthorizationController.call(
-                "can_list_token", sub_queue.resource, self.request.user
-            ):
-                raise PermissionDenied(
-                    "You do not have permission read tokens for this resource"
-                )
+            if not AuthorizationController.call("can_list_token", sub_queue.resource, self.request.user):
+                raise PermissionDenied("You do not have permission read tokens for this resource")
 
     def get(self, request, sub_queue_external_ids: str):
         """
         Render the full token display page with static data.
         """
         self.authorize_request()
-        only_with_active_tokens = _parse_bool_query_param(
-            request.query_params.get("only_with_active_tokens")
-        )
-        va_lang_override = _parse_va_lang_query_param(
-            request.query_params.get("va_lang")
-        )
-        va_langs = (
-            va_lang_override
-            if va_lang_override is not None
-            else list(plugin_settings.VA_DEFAULT_LANG or [])
-        )
-        sub_queues = self.get_sub_queue_objects(
-            only_with_active_tokens=only_with_active_tokens
-        )
+        only_with_active_tokens = _parse_bool_query_param(request.query_params.get("only_with_active_tokens"))
+        va_lang_override = _parse_va_lang_query_param(request.query_params.get("va_lang"))
+        va_langs = va_lang_override if va_lang_override is not None else list(plugin_settings.VA_DEFAULT_LANG or [])
+        sub_queues = self.get_sub_queue_objects(only_with_active_tokens=only_with_active_tokens)
         item_count = len(sub_queues)
 
-        # Determine grid class and column spans
-        if item_count == 1:
-            grid_class = "grid-cols-1"
-        elif item_count < 5:
-            grid_class = "grid-cols-2"
-        else:
-            grid_class = "grid-cols-6"
+        # When every resource on the board is a non-practitioner (a healthcare
+        # service or a physical location), the board represents service
+        # counters rather than doctors' rooms. In that mode the template drops
+        # the "Doctor" column and labels the identifier column "Counter"
+        # instead of "Room". A board with any practitioner keeps the full
+        # Doctor | Room | Token layout.
+        counter_layout = bool(sub_queues) and all(
+            sub_queue.resource.resource_type != SchedulableResourceTypeOptions.practitioner.value
+            for sub_queue in sub_queues
+        )
 
-        # Calculate column spans and fetch token data for each sub-queue
+        # Fetch token data for each sub-queue
         sub_queues_with_data = []
-        for index, sub_queue in enumerate(sub_queues):
-            if item_count == 3 and index == 2:
-                col_span = "col-span-2"
-            elif item_count <= 4:
-                col_span = "col-span-1"
-            else:
-                # For 6-column grid
-                last_row_count = item_count % 3
-                if last_row_count == 1 and index == item_count - 1:
-                    col_span = "col-span-6"
-                elif last_row_count == 2 and index >= item_count - 2:
-                    col_span = "col-span-3"
-                else:
-                    col_span = "col-span-2"
-
+        for sub_queue in sub_queues:
             # Fetch the current token for this sub-queue
             token = (
                 Token.objects.filter(
@@ -168,13 +142,11 @@ class SubQueuesTokenDisplayView(APIView):
             sub_queues_with_data.append(
                 {
                     "id": str(sub_queue.external_id),
-                    "col_span": col_span,
                     "sub_queue_name": sub_queue.name,
                     "resource_name": fmt_schedule_resource_name(sub_queue.resource),
                     "token": token_code or "--",
                     "token_code": token_code,
                     "upcoming_tokens": upcoming_tokens,
-                    "upcoming_padding": range(max(0, 2 - len(upcoming_tokens))),
                 }
             )
 
@@ -186,8 +158,7 @@ class SubQueuesTokenDisplayView(APIView):
             if not va_langs
             else {
                 "sub_queues": [
-                    {"id": entry["id"], "token_code": entry["token_code"]}
-                    for entry in sub_queues_with_data
+                    {"id": entry["id"], "token_code": entry["token_code"]} for entry in sub_queues_with_data
                 ],
                 "langs": va_langs,
                 "auto_refresh_interval": plugin_settings.AUTO_REFRESH_INTERVAL,
@@ -199,8 +170,8 @@ class SubQueuesTokenDisplayView(APIView):
                 "sub_queues": sub_queues_with_data,
                 "item_count": item_count,
                 "auto_refresh_interval": plugin_settings.AUTO_REFRESH_INTERVAL,
-                "grid_class": grid_class,
                 "only_with_active_tokens": only_with_active_tokens,
                 "announcement_payload": announcement_payload,
+                "counter_layout": counter_layout,
             }
         )
