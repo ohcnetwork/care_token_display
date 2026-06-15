@@ -61,18 +61,62 @@
         color: #1a2540;
         text-transform: uppercase;
         font-weight: 700;
-        font-size: clamp(12px, 1.5vmin, 22px);
+        font-size: clamp(12px, 0.6vw + 8px, 22px);
         text-align: left;
         vertical-align: middle;
         white-space: nowrap;
         padding: clamp(8px, 1.4vh, 18px) clamp(16px, 2.2vw, 40px);
       }
 
-      /* Each body row gets an equal share of the board height (set inline
-         from item_count) so the rows fill the board evenly while the lime
-         header stays compact. */
       .tv-row:nth-child(even) {
         background: #22335a;
+      }
+
+      .tv-row {
+        position: relative;
+      }
+
+      .tv-row::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: -50%;
+        width: 50%;
+        pointer-events: none;
+        background: linear-gradient(
+          115deg,
+          transparent 0%,
+          rgba(255, 255, 255, 0.07) 50%,
+          transparent 100%
+        );
+        transform: translateX(0);
+        animation: tv-row-sweep 1.25s ease-in-out both;
+      }
+
+      @keyframes tv-row-sweep {
+        0% {
+          transform: translateX(0);
+          opacity: 0;
+        }
+        25% {
+          opacity: 1;
+        }
+        75% {
+          opacity: 1;
+        }
+        100% {
+          transform: translateX(300%);
+          opacity: 0;
+        }
+      }
+
+      /* Honour reduced-motion: drop the sweep entirely on panels that ask
+         for it (matches the careui tv-display fallback philosophy). */
+      @media (prefers-reduced-motion: reduce) {
+        .tv-row::after {
+          display: none;
+        }
       }
 
       .tv-row td {
@@ -92,31 +136,37 @@
         color: #ffffff;
         font-size: clamp(20px, 4.2vmin, 52px);
         line-height: 1.25;
-        white-space: nowrap;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
         overflow: hidden;
-        text-overflow: ellipsis;
+        overflow-wrap: break-word;
       }
 
       .tv-col-room {
         white-space: nowrap;
       }
 
-      /* In counter mode (no doctor column) the counter column absorbs the
-         remaining width so the token sits at the right edge of the board. */
-      .tv-table.tv-counter .tv-col-room {
+      .tv-table.tv-counter .tv-col-token {
         width: 100%;
+        text-align: right;
       }
 
       .tv-room-badge {
-        display: inline-block;
-        min-width: clamp(48px, 7vmin, 110px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        min-width: clamp(48px, 10.8vmin, 128px);
+        height: clamp(48px, 10.8vmin, 128px);
         border: 2px solid rgba(255, 255, 255, 0.5);
         color: #ffffff;
         font-weight: 700;
-        font-size: clamp(20px, 3.6vmin, 48px);
+        font-size: clamp(24px, 5.4vmin, 80px);
         font-variant-numeric: tabular-nums;
         line-height: 1;
-        padding: clamp(6px, 1.2vh, 16px) clamp(12px, 1.6vw, 28px);
+        padding: 0 clamp(8px, 1.6vw, 20px);
         white-space: nowrap;
         text-align: center;
       }
@@ -128,7 +178,7 @@
       .tv-token-number {
         font-weight: 800;
         color: #ffd23f;
-        font-size: clamp(32px, 6.5vmin, 96px);
+        font-size: clamp(36px, 6.7vmin, 104px);
         font-variant-numeric: tabular-nums;
         line-height: 1;
         white-space: nowrap;
@@ -170,8 +220,8 @@
 
       .tv-next-token + .tv-next-token::before {
         content: "\00B7";
-        color: rgba(255, 255, 255, 0.6);
-        margin: 0 0.4em;
+        color: #ffffff;
+        margin: 0 0.5em;
       }
 
       .empty-screen {
