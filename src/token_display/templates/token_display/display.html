@@ -13,215 +13,129 @@
         box-sizing: border-box;
       }
 
-      html,
-      body {
-        margin: 0;
-        padding: 0;
-        height: 100%;
-      }
-
       body {
         font-family:
-          "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-          "Helvetica Neue", Arial, "Noto Sans", "Noto Sans Malayalam",
-          "Noto Sans Devanagari", "Noto Color Emoji", sans-serif;
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
-        text-rendering: optimizeLegibility;
-        background: #0a0a0a;
-        color: #ffffff;
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
+          Cantarell, sans-serif;
+        margin: 0;
+        padding: 0;
+        background: #1fb6c9;
         height: 100vh;
         overflow: hidden;
       }
 
-      /* Near-black surround so the rounded board's corners are visible. */
-      .tv-page {
+      .token-display-container {
         height: 100vh;
-        padding: clamp(8px, 1.5vh, 24px);
+        background: #1fb6c9;
+        padding: 16px;
+        display: grid;
+        gap: 16px;
       }
 
-      /* The board itself: a rounded card that clips the header and rows. */
-      .tv-display {
+      /* Grid layouts based on item count */
+      .token-display-container.grid-cols-1 {
+        grid-template-columns: 1fr;
+      }
+
+      .token-display-container.grid-cols-2 {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .token-display-container.grid-cols-6 {
+        grid-template-columns: repeat(6, 1fr);
+      }
+
+      .service-point-card {
+        padding: 16px;
         height: 100%;
-        width: 100%;
-        background: #1a2540;
-        border-radius: 16px;
-        overflow: hidden;
-      }
-
-      .tv-table {
-        width: 100%;
-        height: 100%;
-        border-collapse: collapse;
-        table-layout: auto;
-      }
-
-      .tv-header-row th {
-        background: #e8ff6b;
-        color: #1a2540;
-        text-transform: uppercase;
-        font-weight: 700;
-        font-size: clamp(12px, 0.6vw + 8px, 22px);
-        text-align: left;
-        vertical-align: middle;
-        white-space: nowrap;
-        padding: clamp(8px, 1.4vh, 18px) clamp(16px, 2.2vw, 40px);
-      }
-
-      .tv-row:nth-child(even) {
-        background: #22335a;
-      }
-
-      .tv-row {
-        position: relative;
-      }
-
-      .tv-row::after {
-        content: "";
-        position: absolute;
-        top: 0;
-        bottom: 0;
-        left: -50%;
-        width: 50%;
-        pointer-events: none;
-        background: linear-gradient(
-          115deg,
-          transparent 0%,
-          rgba(255, 255, 255, 0.07) 50%,
-          transparent 100%
-        );
-        transform: translateX(0);
-        animation: tv-row-sweep 1.25s ease-in-out both;
-      }
-
-      @keyframes tv-row-sweep {
-        0% {
-          transform: translateX(0);
-          opacity: 0;
-        }
-        25% {
-          opacity: 1;
-        }
-        75% {
-          opacity: 1;
-        }
-        100% {
-          transform: translateX(300%);
-          opacity: 0;
-        }
-      }
-
-      /* Honour reduced-motion: drop the sweep entirely on panels that ask
-         for it (matches the careui tv-display fallback philosophy). */
-      @media (prefers-reduced-motion: reduce) {
-        .tv-row::after {
-          display: none;
-        }
-      }
-
-      .tv-row td {
-        vertical-align: middle;
-        padding: clamp(6px, 1.4vh, 20px) clamp(16px, 2.2vw, 40px);
-        overflow: hidden;
-      }
-
-      /* Doctor column takes the remaining width; room/token hug their content. */
-      .tv-col-doctor {
-        width: 100%;
-        max-width: 0;
-      }
-
-      .tv-doctor-name {
-        font-weight: 700;
-        color: #ffffff;
-        font-size: clamp(20px, 4.2vmin, 52px);
-        line-height: 1.25;
-        display: -webkit-box;
-        -webkit-box-orient: vertical;
-        -webkit-line-clamp: 2;
-        line-clamp: 2;
-        overflow: hidden;
-        overflow-wrap: break-word;
-      }
-
-      .tv-col-room {
-        white-space: nowrap;
-      }
-
-      .tv-table.tv-counter .tv-col-token {
-        width: 100%;
-        text-align: right;
-      }
-
-      .tv-room-badge {
+        background: #07131f;
+        text-align: center;
         display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      .service-point-header {
+        padding: 24px;
+        background: #122235;
+        border-radius: 16px 16px 0 0;
+      }
+
+      .sub-queue-name {
+        color: #ffffff;
+        text-transform: uppercase;
+        white-space: nowrap;
+        font-size: 16px;
+        margin: 8px 0 0 0;
+        padding: 0;
+      }
+
+      .resource-name {
+        font-weight: bold;
+        color: #ffffff;
+        font-size: 24px;
+        margin: 0;
+        padding: 0;
+      }
+
+      .token-display-area {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
-        width: 100%;
-        min-width: clamp(48px, 10.8vmin, 128px);
-        height: clamp(48px, 10.8vmin, 128px);
-        border: 2px solid rgba(255, 255, 255, 0.5);
-        color: #ffffff;
-        font-weight: 700;
-        font-size: clamp(24px, 5.4vmin, 80px);
-        font-variant-numeric: tabular-nums;
-        line-height: 1;
-        padding: 0 clamp(8px, 1.6vw, 20px);
-        white-space: nowrap;
+        background: #07131f;
+        padding: 16px;
+      }
+
+      .token-number {
+        font-weight: 900;
+        color: #ffd83d;
+        font-size: 48px;
+        padding: 8px 12px;
+        overflow: hidden;
         text-align: center;
       }
 
-      .tv-col-token {
-        white-space: nowrap;
+      .upcoming-tokens {
+        background: #122235;
+        border-radius: 0 0 16px 16px;
+        padding: 12px 16px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
       }
 
-      .tv-token-number {
-        font-weight: 800;
-        color: #ffd23f;
-        font-size: clamp(36px, 6.7vmin, 104px);
-        font-variant-numeric: tabular-nums;
-        line-height: 1;
-        white-space: nowrap;
-        animation: tv-token-in 0.5s ease both;
-      }
-
-      @keyframes tv-token-in {
-        0% {
-          transform: translateY(40%);
-          opacity: 0;
-        }
-        100% {
-          transform: translateY(0);
-          opacity: 1;
-        }
-      }
-
-      .tv-next {
-        margin-top: clamp(2px, 0.8vh, 10px);
-        color: rgba(255, 255, 255, 0.75);
-        font-weight: 600;
-        font-size: clamp(14px, 1.8vmin, 30px);
+      .upcoming-tokens-label {
+        color: #9ca3af;
         text-transform: uppercase;
-        white-space: nowrap;
-      }
-
-      .tv-next-label {
-        margin-right: 0.4em;
-        font-weight: 500;
-        color: rgba(255, 255, 255, 0.8);
-      }
-
-      .tv-next-token {
-        color: #ffffff;
+        letter-spacing: 0.08em;
+        font-size: 12px;
         font-weight: 700;
-        font-variant-numeric: tabular-nums;
-        letter-spacing: 0.025em;
+        text-align: center;
       }
 
-      .tv-next-token + .tv-next-token::before {
-        content: "\00B7";
-        color: #ffffff;
-        margin: 0 0.5em;
+      .upcoming-tokens-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+      }
+
+      .upcoming-token {
+        background: #07131f;
+        border-radius: 8px;
+        padding: 8px 4px;
+        color: #e5e7eb;
+        font-weight: 800;
+        font-size: 18px;
+        text-align: center;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .upcoming-token.is-empty {
+        color: #4b5563;
       }
 
       .empty-screen {
@@ -229,56 +143,106 @@
         inset: 0;
         background: #000000;
       }
+
+      /* Responsive adjustments */
+      @media (min-width: 640px) {
+        .sub-queue-name {
+          font-size: 18px;
+        }
+
+        .resource-name {
+          font-size: 30px;
+        }
+
+        .token-number {
+          font-size: 64px;
+        }
+
+        .upcoming-tokens-label {
+          font-size: 14px;
+        }
+
+        .upcoming-token {
+          font-size: 24px;
+          padding: 10px 6px;
+        }
+      }
+
+      @media (min-width: 768px) {
+        .sub-queue-name {
+          font-size: 24px;
+        }
+
+        .resource-name {
+          font-size: 36px;
+        }
+
+        .token-number {
+          font-size: 96px;
+        }
+
+        .upcoming-tokens-label {
+          font-size: 16px;
+        }
+
+        .upcoming-token {
+          font-size: 32px;
+          padding: 12px 8px;
+        }
+      }
+
+      /* Column span classes for grid items */
+      .col-span-1 {
+        grid-column: span 1;
+      }
+
+      .col-span-2 {
+        grid-column: span 2;
+      }
+
+      .col-span-3 {
+        grid-column: span 3;
+      }
+
+      .col-span-6 {
+        grid-column: span 6;
+      }
     </style>
   </head>
   <body>
     {% if sub_queues and item_count > 0 %}
-    <div class="tv-page">
-      <div class="tv-display">
-        <table class="tv-table{% if counter_layout %} tv-counter{% endif %}">
-          <thead>
-            <tr class="tv-header-row">
-              {% if not counter_layout %}
-              <th class="tv-col-doctor">Doctor</th>
-              {% endif %}
-              <th class="tv-col-room">
-                {% if counter_layout %}Counter{% else %}Room{% endif %}
-              </th>
-              <th class="tv-col-token">Token</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for sub_queue in sub_queues %}
-            <tr class="tv-row" style="height: {% widthratio 100 item_count 1 %}%">
-              {% if not counter_layout %}
-              <td class="tv-col-doctor">
-                <div class="tv-doctor-name">{{ sub_queue.resource_name }}</div>
-              </td>
-              {% endif %}
-              <td class="tv-col-room">
-                <div class="tv-room-badge">{{ sub_queue.sub_queue_name }}</div>
-              </td>
-              <td class="tv-col-token">
-                <div class="tv-token-number">{{ sub_queue.token }}</div>
-                {% if sub_queue.upcoming_tokens %}
-                <div class="tv-next">
-                  <span class="tv-next-label">Next:</span>
-                  {% for upcoming in sub_queue.upcoming_tokens %}
-                  <span class="tv-next-token">{{ upcoming }}</span>
-                  {% endfor %}
-                </div>
-                {% endif %}
-              </td>
-            </tr>
+    <div class="token-display-container {{ grid_class }}">
+      {% for sub_queue in sub_queues %}
+      <div class="service-point-card {{ sub_queue.col_span }}">
+        <div class="service-point-header">
+          {% if sub_queue.resource_name %}
+          <div class="resource-name">{{ sub_queue.resource_name }}</div>
+          {% endif %}
+          <div class="sub-queue-name">{{ sub_queue.sub_queue_name }}</div>
+        </div>
+        <div class="token-display-area">
+          <div class="token-number">{{ sub_queue.token }}</div>
+        </div>
+        {% if sub_queue.upcoming_tokens %}
+        <div class="upcoming-tokens">
+          <div class="upcoming-tokens-label">Next in queue →</div>
+          <div class="upcoming-tokens-grid">
+            {% for upcoming in sub_queue.upcoming_tokens %}
+            <span class="upcoming-token">{{ upcoming }}</span>
             {% endfor %}
-          </tbody>
-        </table>
+            {% for _ in sub_queue.upcoming_padding %}
+            <span class="upcoming-token is-empty">—</span>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
       </div>
+      {% endfor %}
     </div>
     {% else %}
     <div class="empty-screen"></div>
-    {% endif %}
-    {% if announcement_payload %}
+    {% endif %} 
+    {% if announcement_payload %} 
     {{ announcement_payload|json_script:"token-payload" }}
     <script>
       (function () {

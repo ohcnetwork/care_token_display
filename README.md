@@ -1,10 +1,6 @@
 # care_token_display
 
-A Django plugin for Care that provides server-side rendered (SSR) token display
-pages for clinic waiting-room TV signage. The plugin renders current and
-upcoming token information for multiple service-point sub-queues as a
-full-screen queue board, with an optional auto-refresh interval and voice
-announcements.
+A Django plugin for Care that provides server-side rendered (SSR) token display pages with automatic refresh using HTMX. The plugin displays current token information for multiple service point sub-queues in a responsive grid layout.
 
 ## Local Development
 
@@ -86,7 +82,7 @@ To display tokens for multiple sub-queues:
 /token_display/sub_queues/<uuid1>,<uuid2>,<uuid3>,.../
 ```
 
-This will render a full-screen queue board showing current and upcoming token information for all sub-queues. The page reloads automatically when an auto-refresh interval (or voice announcements) is configured; otherwise it shows a snapshot and must be refreshed manually.
+This will render a responsive grid showing a static snapshot of current token information for all sub-queues. The page must be manually refreshed to see updated data.
 
 **Note**: Only active sub-queues (with `status=active`) are displayed. Invalid or inactive sub-queue IDs are filtered out.
 
@@ -95,35 +91,19 @@ This will render a full-screen queue board showing current and upcoming token in
 The plugin provides a simple server-side rendered page that displays current token information:
 
 1. **Request**: The view receives comma-separated sub-queue UUIDs
-2. **Data Fetching**: For each sub-queue, the plugin fetches the current in-progress token and the next two upcoming tokens
-3. **Layout selection**: The view inspects the resource type behind each sub-queue to pick the practitioner or counter board layout (see [Layout](#layout))
-4. **Rendering**: All data is rendered in a single HTML response as a full-screen table board
-5. **Refresh**: When an auto-refresh interval is configured the page reloads via a `<meta http-equiv="refresh">` tag; when voice announcements are enabled the announcer coordinates the reload so audio is never cut off
+2. **Data Fetching**: For each sub-queue, the plugin fetches the current in-progress token
+3. **Rendering**: All data is rendered in a single HTML response with a responsive grid layout
+4. **Static Display**: The page shows a snapshot of data at request time - manual refresh is required to see updates
 
-### Layout
+### Grid Layout
 
-The page renders as a full-screen, rounded TV queue board. The board adapts to
-the type of scheduled resource behind each sub-queue:
+The plugin automatically adjusts the grid layout based on the number of sub-queues:
 
-**Practitioner boards** (`Doctor | Room | Token`)
+- **1 sub-queue**: Single column layout
+- **2-4 sub-queues**: 2-column grid
+- **5+ sub-queues**: 3-column grid (6-column base with smart column spanning)
 
-Used when at least one sub-queue is backed by a practitioner. A fixed header
-labels three columns and each sub-queue is one row showing:
-
-- the resource name (**Doctor**),
-- the sub-queue name as a bordered badge (**Room**), and
-- the current token plus the next two upcoming tokens (**Token**).
-
-**Counter boards** (`Counter | Token`)
-
-Used when _every_ sub-queue is backed by a non-practitioner resource (a
-healthcare service or a location) — e.g. pharmacy or billing counters. The
-Doctor column is dropped and the badge column is relabelled **Counter**.
-
-In both layouts the rows are equal height and shrink to fit the viewport, so all
-sub-queues stay visible on a fixed TV screen without scrolling. Font sizes scale
-fluidly with the smaller viewport dimension (`vmin`), keeping the board readable
-across landscape, portrait, and 4:3 screens.
+The layout handles edge cases like odd numbers of items in the last row.
 
 ## Development
 
@@ -149,12 +129,9 @@ src/token_display/
 
 ## Notes
 
-- The board styling follows the Care UI `tv-display` design (dark board, lime
-  header, bordered badges, animated current token).
-- With no auto-refresh interval configured, the page shows a static snapshot at
-  request time and must be refreshed manually.
-- Setting an auto-refresh interval (or enabling voice announcements) makes the
-  page reload on its own to pick up new tokens.
+- The UI is designed to work on displays that may not support modern CSS features
+- The page displays a static snapshot of token data at the time of request
+- Users must manually refresh the browser to see updated token information
 
 
 ---
