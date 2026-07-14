@@ -23,7 +23,7 @@ git clone git@github.com:ohcnetwork/care_token_display.git
 ...
 
 care_token_display_plugin = Plug(
-    name=care_token_display, # name of the django app in the plugin
+    name="token_display", # name of the django app in the plugin
     package_name="/app/care_token_display", # this has to be /app/ + plugin folder name
     version="", # keep it empty for local development
     configs={}, # plugin configurations if any
@@ -63,7 +63,7 @@ To install care care_token_display, you can add the plugin config in [care/plug_
 ...
 
 care_token_display_plug = Plug(
-    name=care_token_display,
+    name="token_display",
     package_name="git+https://github.com/ohcnetwork/care_token_display.git",
     version="@master",
     configs={},
