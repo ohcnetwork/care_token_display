@@ -21,3 +21,28 @@ def fmt_schedule_resource_name(obj: SchedulableResource) -> str:
 
 def fmt_token_number(token: Token) -> str:
     return f"{token.category.shorthand}-{token.number:03d}"
+
+
+def build_display_path(sub_queues, service_account: User | None) -> str | None:
+    """Build the SSR display path for a configured token display device.
+
+    Returns ``None`` unless the device is fully configured — sub-queues *and* a
+    service account with a live DRF auth token. A partially configured display
+    has no usable URL, and returning a half-formed one (no ``?token=``, or a
+    token pointing at nothing) would only produce a 403 on a waiting-room TV.
+    """
+    from django.urls import reverse
+    from rest_framework.authtoken.models import Token as AuthToken
+
+    if not sub_queues or service_account is None:
+        return None
+
+    key = AuthToken.objects.filter(user=service_account).values_list("key", flat=True).first()
+    if not key:
+        return None
+
+    path = reverse(
+        "sub-queues-token-display",
+        kwargs={"sub_queue_external_ids": ",".join(str(sub_queue.external_id) for sub_queue in sub_queues)},
+    )
+    return f"{path}?token={key}"
