@@ -1,15 +1,3 @@
-"""Metadata specs for the `token_display` care device type.
-
-Contract notes
---------------
-* The device's ``metadata`` JSON stores **primary keys only** — never external
-  ids/UUIDs. External ids are the wire format; PKs are the storage format.
-* Writes are validated against the owning facility, so a display can never be
-  pointed at a sub-queue or a service account outside its own facility.
-* Reads are only ever produced for retrieves (see ``device.py``); the list
-  serializer returns ``{}``.
-"""
-
 from pydantic import UUID4, BaseModel, ValidationInfo, field_validator
 
 from care.emr.models import Device, TokenSubQueue
@@ -21,14 +9,6 @@ from care.users.models import User
 
 
 class TokenDisplayDeviceMetadataWriteSpec(BaseModel):
-    """Request-side shape. Accepts external ids, resolves them to PKs.
-
-    Both fields are optional: a display can be registered before anyone has
-    decided which service points it shows or which service account it runs as.
-    An unconfigured (or partially configured) display simply has no
-    ``display_path`` on retrieve. What is supplied is still validated.
-    """
-
     sub_queues: list[UUID4] = []
     service_account: UUID4 | None = None
 
@@ -70,7 +50,6 @@ class TokenDisplayDeviceMetadataWriteSpec(BaseModel):
         return value
 
     def to_metadata(self, facility) -> dict:
-        """Resolve external ids to PKs — the on-disk representation."""
         sub_queue_ids_by_external_id = {
             str(external_id): pk
             for external_id, pk in TokenSubQueue.objects.filter(
@@ -89,8 +68,6 @@ class TokenDisplayDeviceMetadataWriteSpec(BaseModel):
 
 
 class TokenDisplayDeviceMetadataReadSpec(BaseModel):
-    """Retrieve-side shape. Hydrated from PKs in ``device.py``."""
-
     sub_queues: list[dict] = []
     service_account: dict | None = None
     display_path: str | None = None
