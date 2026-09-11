@@ -13,8 +13,13 @@ class TokenDisplayConfig(AppConfig):
     verbose_name = _("Token Display")
 
     def ready(self):
+        from care.emr.registries.device_type.device_registry import DeviceTypeRegistry
+        from token_display.device import CARE_DEVICE_TYPE, TokenDisplayDevice
+
         # include non-API routes (SSR Pages)
         urlconf = import_module(settings.ROOT_URLCONF)
         urlconf.urlpatterns += [
             path(f"{PLUGIN_NAME}/", include(f"{PLUGIN_NAME}.pages"))
         ]
+
+        DeviceTypeRegistry.register(CARE_DEVICE_TYPE, TokenDisplayDevice)

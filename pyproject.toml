@@ -11,7 +11,7 @@ classifiers = [
     # TODO
 ]
 license = { text = "MIT" }
-dependencies = ["django", "celery", "djangorestframework"]
+dependencies = ["django", "celery", "djangorestframework", "pydantic"]
 requires-python = ">= 3.10"
 
 [project.optional-dependencies]
@@ -30,11 +30,11 @@ line-length = 120
 
 [tool.ruff.lint]
 select = [
-    "E",  # pycodestyle errors
-    "W",  # pycodestyle warnings
-    "F",  # Pyflakes
-    "I",  # isort
-    "B",  # flake8-bugbear
+    "E", # pycodestyle errors
+    "W", # pycodestyle warnings
+    "F", # Pyflakes
+    "I", # isort
+    "B", # flake8-bugbear
     "UP", # pyupgrade
 ]
 

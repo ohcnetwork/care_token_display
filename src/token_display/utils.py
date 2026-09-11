@@ -21,3 +21,22 @@ def fmt_schedule_resource_name(obj: SchedulableResource) -> str:
 
 def fmt_token_number(token: Token) -> str:
     return f"{token.category.shorthand}-{token.number:03d}"
+
+
+def build_display_path(sub_queues, service_account: User | None) -> str | None:
+    """Build the SSR display path for a configured token display device."""
+    from django.urls import reverse
+    from rest_framework.authtoken.models import Token as AuthToken
+
+    if not sub_queues or service_account is None:
+        return None
+
+    key = AuthToken.objects.filter(user=service_account).values_list("key", flat=True).first()
+    if not key:
+        return None
+
+    path = reverse(
+        "sub-queues-token-display",
+        kwargs={"sub_queue_external_ids": ",".join(str(sub_queue.external_id) for sub_queue in sub_queues)},
+    )
+    return f"{path}?token={key}"
