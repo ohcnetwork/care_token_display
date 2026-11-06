@@ -203,3 +203,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# macOS
+.DS_Store
+
+# JetBrains IDEs
+.idea/
