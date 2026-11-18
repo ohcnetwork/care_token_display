@@ -11,11 +11,11 @@ from django.db.models import Exists, OuterRef
 from django.utils import timezone
 from django.utils.timezone import make_naive
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.renderers import TemplateHTMLRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from token_display.authentication import QueryParamTokenAuthentication
+from token_display.renderers import TokenDisplayHTMLRenderer
 from token_display.settings import plugin_settings
 from token_display.utils import (
     fmt_schedule_resource_name,
@@ -57,7 +57,7 @@ class SubQueuesTokenDisplayView(APIView):
     """
 
     authentication_classes = [QueryParamTokenAuthentication]
-    renderer_classes = [TemplateHTMLRenderer]
+    renderer_classes = [TokenDisplayHTMLRenderer]
     template_name = "token_display/display.html"
 
     def get_sub_queue_objects(self, only_with_active_tokens: bool = False):
@@ -88,7 +88,7 @@ class SubQueuesTokenDisplayView(APIView):
         # masked by the active-tokens filter.
         for sub_queue in self.get_sub_queue_objects():
             if not AuthorizationController.call("can_list_token", sub_queue.resource, self.request.user):
-                raise PermissionDenied("You do not have permission read tokens for this resource")
+                raise PermissionDenied("This service account does not have permission to view this queue.")
 
     def get(self, request, sub_queue_external_ids: str):
         """
